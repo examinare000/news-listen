@@ -1,230 +1,182 @@
 # 10. Git戦略
 
-## 🚨 必須ルール: Git戦略の統一仕様
+本リポジトリにおけるブランチ・コミット運用の**正本（Single Source of Truth）**。
+Git-Flow を参考にしたブランチ戦略を採用する。
 
-### ブランチ戦略
+## 必須ルール
 
-#### 基本原則
-- **1ブランチ = 1目的**: 各ブランチは単一明確な目的を持つ
-- **目的の混在禁止**: 異なる目的は別ブランチで実装
-- **保護ブランチ**: master、main、developブランチへの直接コミット禁止
-- **フィーチャーブランチワークフロー**: すべての開発はフィーチャーブランチで
+- 1ブランチ = 1イニシアチブ。小さく短命に保つ
+- 保護ブランチ（`main` / `develop`）への直接コミット禁止
+- 共有ブランチへの force-push 禁止
+- `git add .` 原則禁止（意図しないファイル混入防止）
+- WIP連投・無関係な変更の混在禁止
 
-#### ブランチ構成
+## ブランチ構成
 
-**メインブランチ:**
-- **`main`**: プロダクション準備完了コードのみ
-  - リリースタグのみ
-  - 直接コミット禁止
-  - 安定バージョンを維持
+| ブランチ | 用途 | 分岐元 | マージ先 | 直接コミット |
+|---|---|---|---|---|
+| `main` | プロダクション。タグ付きリリースのみ | - | - | 禁止 |
+| `develop` | 統合開発ブランチ | - | - | 禁止 |
+| `feature/<task-name>` | 新機能開発 | develop | develop | 可 |
+| `release/<version>` | リリース準備 | develop | main + develop | 可 |
+| `hotfix/<name>` | 緊急修正 | main | main + develop | 可 |
 
-- **`develop`**: 統合開発ブランチ
-  - 全ての開発はここで実施
-  - feature ブランチからのマージ先
-  - 日常的な開発作業の基点
+Agentic coding の拡張ブランチ（`development/feature/*` 等）は `90-agentic-coding.md` を参照。
 
-**サポートブランチ:**
-- **`feature/xxx`**: 新機能開発
-  - developから分岐
-  - developにマージ
-  - 機能完了後削除
+### 命名例
 
-- **`hotfix/xxx`**: 緊急修正
-  - mainから分岐
-  - mainとdevelopの両方にマージ
-
-- **`release/xxx`**: リリース準備
-  - developから分岐
-  - mainとdevelopの両方にマージ
-
-### Claude Code動作制約
-
-#### 開発開始時の必須チェック
-```bash
-# 必ず現在のブランチを確認
-git branch
-git status
-
-# developブランチにいることを確認してから作業開始
-git checkout develop
-git pull origin develop
+```
+feature/user-auth-session-timeout
+release/v0.5.0
+hotfix/critical-sync-bug
 ```
 
-#### 新機能開発フロー
-```bash
-# developから新機能ブランチを作成
-git checkout develop
-git checkout -b feature/feature-name
+## アトミックコミットの原則
 
-# 開発実施（アトミックコミット）
+1. **1コミット = 1論理変更**
+2. **複数ファイルは原則別コミット**。例外は相互依存がある場合のみ
+   - 相互依存の定義: 一方の変更がコミットされないと他方が正常動作しない
+   - 例: CSS変数定義（`globals.css`）とそれを参照する `tailwind.config.ts`
+3. **独立した取り消し可能性**: 各コミットは他機能を壊さず revert 可能
+
+### 依存関係の判断基準
+
+| 状況 | 依存 | コミット方法 |
+|---|---|---|
+| 設定ファイルAを参照する設定ファイルB | あり | 1コミット |
+| 同じ機能の異なるファイル（個別動作可能） | なし | 別コミット |
+| インポート関係があるがビルド可能 | なし | 別コミット |
+| 一方がないとコンパイル/実行エラー | あり | 1コミット |
+
+## コミットメッセージ規約
+
+**形式**: `<種別>: <説明>`（日本語、1〜2文、WHY優先）
+**Co-Author表記は不要**
+
+| 種別 | 用途 |
+|---|---|
+| 機能 | 新機能の追加 |
+| 修正 | バグの修正 |
+| 改善 | 既存機能の改善 |
+| 削除 | コード・ファイルの削除 |
+| 移動 | ファイル・コードの移動 |
+| 名前変更 | 変数・関数・ファイル名の変更 |
+| テスト   | テストの追加・修正           |
+| 文書     | ドキュメントのみの変更       |
+| 設定     | 設定ファイルの変更           |
+| 構成     | ディレクトリ構造の変更       |
+| 統合     | ブランチのマージ             |
+
+```bash
+# ✅ 良い例（WHYを含む）
+git commit -m "改善: ボタン色をCSS変数に移行（保守性向上）"
+git commit -m "統合: feature/user-authをdevelopにマージ"
+
+# ❌ 悪い例
+git commit -m "update"
+git commit -m "WIP"
+```
+
+## マージ戦略
+
+マージコミットを許容する。rebase は必須ではない。
+
+```bash
+git merge feature/<task-name>           # 標準マージ
+git merge --no-ff feature/<task-name>   # 明示的にマージコミット作成
+```
+
+コンフリクト解決後は `統合: <理由>` のメッセージでコミット。
+
+## 典型フロー
+
+### 機能開発（feature）
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b feature/<task-name>
+
+# アトミックコミットで開発
 git add specific_file.py
-git commit -m "機能: 新機能の特定部分を実装"
+git commit -m "機能: <WHY>"
 
-# 完了後developにマージ
-git checkout develop
-git merge --ff-only feature/feature-name
-git branch -d feature/feature-name
+# 完了後
+git checkout develop && git pull origin develop
+git merge feature/<task-name>
+git push origin develop
+git branch -d feature/<task-name>
 ```
 
-#### リリース準備フロー
+### リリース（release）
+
 ```bash
-# developからリリースブランチを作成
-git checkout develop
-git checkout -b release/v1.2.0
+git checkout -b release/vX.Y.Z develop
+# バージョン/CHANGELOG更新・最終テスト
 
-# リリース準備（バージョン更新、最終テスト等）
-git add version_file
-git commit -m "設定: v1.2.0リリースのためバージョンを更新"
+git checkout main && git merge release/vX.Y.Z
+git tag -a vX.Y.Z -m "リリース vX.Y.Z"
+git push origin main --tags
 
-# mainにマージ
-git checkout main
-git merge --ff-only release/v1.2.0
-
-# タグ作成
-git tag -a v1.2.0 -m "リリース v1.2.0"
-
-# developに変更を反映
-git checkout develop
-git merge --ff-only release/v1.2.0
-git branch -d release/v1.2.0
+git checkout develop && git merge release/vX.Y.Z
+git push origin develop
+git branch -d release/vX.Y.Z
 ```
 
-#### 緊急修正フロー
+### 緊急修正（hotfix）
+
 ```bash
-# mainから緊急修正ブランチを作成
-git checkout main
-git checkout -b hotfix/critical-bug-fix
+git checkout -b hotfix/<name> main
+# 修正後
+git checkout main && git merge hotfix/<name>
+git tag -a vX.Y.Z -m "Hotfix vX.Y.Z"
+git push origin main --tags
 
-# 修正実施
-git add fixed_file.py
-git commit -m "修正: 緊急修正 - セキュリティホールを修正"
-
-# mainとdevelopの両方にマージ
-git checkout main
-git merge --ff-only hotfix/critical-bug-fix
-
-git checkout develop
-git merge --ff-only hotfix/critical-bug-fix
-
-git branch -d hotfix/critical-bug-fix
+git checkout develop && git merge hotfix/<name>
+git push origin develop
+git branch -d hotfix/<name>
 ```
 
-### マージ戦略
-
-#### Fast-Forward-Only原則
-- **`--ff-only` 必須**: すべてのマージでfast-forwardを強制
-- **履歴の線形化**: ブランチの履歴を線形に保つ
-- **マージコミット禁止**: 不要なマージコミットを作成しない
+## 事前チェック（push / PR 前）
 
 ```bash
-# ✅ 正しいマージ
-git merge --ff-only feature/new-feature
-
-# ❌ 禁止されたマージ
-git merge feature/new-feature  # マージコミットが作成される
-git merge --no-ff feature/new-feature  # 明示的にマージコミット作成
+npm test         # または pytest, go test など
+npm run lint
+npm run typecheck
 ```
 
-#### Rebaseの活用
+## 誤操作時のリカバリー
+
+### main / develop に誤コミット
+
 ```bash
-# feature作業中にdevelopが更新された場合
-git checkout feature/my-feature
-git rebase develop
-
-# コンフリクト解決後
-git rebase --continue
-
-# developにマージ（fast-forwardになる）
-git checkout develop
-git merge --ff-only feature/my-feature
-```
-
-### 緊急事態対応
-
-#### mainブランチに誤ってコミットした場合
-```bash
-# 最後のコミットを取り消してdevelopに移動
 git reset --soft HEAD~1
 git stash
-
-git checkout develop
+git checkout <correct-branch>
 git stash pop
-
-git add -A
-git commit -m "移動: mainから誤ってコミットした変更をdevelopに移動"
+git commit -m "移動: 誤って<branch>にコミットした変更を移動"
 ```
 
-#### 間違ったブランチで作業した場合
+### 間違ったブランチで作業
+
 ```bash
-# 現在のブランチで作業内容をstash
 git stash
-
-# 正しいブランチに移動
-git checkout correct-branch
-
-# 作業内容を復元
+git checkout <correct-branch>
 git stash pop
-
-# 通常のコミット手順を実行
-git add -A
-git commit -m "機能: 正しいブランチで機能を実装"
 ```
 
-### コミット品質管理
+## バージョニング
 
-#### アトミックコミットの徹底
+- Semantic Versioning（MAJOR.MINOR.PATCH）
+- `main` 取り込み時は annotated tag を付与
+
+## 開発開始時の必須チェック
+
 ```bash
-# ❌ 悪い例：複数の変更を1つのコミットに
-git add .
-git commit -m "機能追加とバグ修正と設定変更"
-
-# ✅ 良い例：変更を分割
-git add src/new_feature.py tests/test_new_feature.py
-git commit -m "機能: 新機能XYZを実装"
-
-git add src/bug_fix.py
-git commit -m "修正: ユーザー認証のバグを解決"
-
-git add config/settings.yaml
-git commit -m "設定: 本番環境用の設定を追加"
+git branch                       # 現在ブランチ確認
+git status                       # 状態確認
+git checkout develop && git pull # 統合ブランチ最新化
 ```
-
-#### コミットメッセージの品質
-```bash
-# ✅ 良いコミットメッセージ
-git commit -m "機能: ユーザープロフィール編集機能を実装"
-git commit -m "修正: パスワードリセット時のメール送信エラーを解決"
-git commit -m "改善: データベースクエリのパフォーマンスを最適化"
-git commit -m "テスト: 認証機能の統合テストを追加"
-git commit -m "削除: 使用されなくなった旧API関連コードを削除"
-
-# ❌ 悪いコミットメッセージ
-git commit -m "update"
-git commit -m "fix bug"
-git commit -m "WIP"
-git commit -m "changes"
-```
-
-### 継続的統合との連携
-
-#### プルリクエスト前チェック
-```bash
-# ローカルでの事前チェック
-npm test              # または pytest, go test等
-npm run lint          # または flake8, golint等
-npm run typecheck     # または mypy, go vet等
-
-# すべて通過後にプッシュ
-git push origin feature/my-feature
-```
-
-#### 自動化可能なチェック
-- **テスト自動実行**: すべてのブランチでテスト実行
-- **静的解析**: lint、typecheck、セキュリティスキャン
-- **依存関係チェック**: 脆弱性スキャン
-- **コミットメッセージ検証**: 形式チェック
 
 ---
 
 **適用優先度**: 🔴 最高（すべてのGit操作に適用必須）
-**更新頻度**: プロジェクト規模に応じて見直し

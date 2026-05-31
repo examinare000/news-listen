@@ -1,148 +1,128 @@
 # プロジェクトテンプレート
 
-この詳細な開発ルール体系を持つプロジェクトテンプレートです。
-
-## 概要
-
-このテンプレートは、複数のAIエージェント（Claude、Codex、Gemini）が協調して開発作業を行う「Agentic Coding」を前提とした開発環境を提供します。レイヤー化された指示書体系により、効率的で高品質な開発が可能です。
+複数のAIエージェント（Claude / Codex / Gemini）が協調して開発を行う「Agentic Coding」前提のテンプレート。
+レイヤー化された指示書体系で効率的かつ高品質な開発を実現する。
 
 ## 特徴
 
-### Agentic Coding対応
-- **Claude**: タスクマネジメント・統合判断専任
-- **Codex**: コーディング・実装専任
-- **Gemini**: 調査・分析専任
+### Agentic Coding対応（2モード）
 
-### 階層化されたルール体系
-プロジェクト固有のエージェント動作ルールは `agent-rules/` ディレクトリに5つのレイヤーで構成：
+#### モードA: 複数LLM協調（`agent-rules/90-agentic-coding.md`）
 
-#### レイヤー0: 基盤原則（00-10番台）
-- `00-core-principles.md`: **絶対原則**（デグレ防止、日本語使用、TDD）
-- `01-claude-behavior.md`: Claude専用の動作制約
-- `02-development-workflow.md`: 開発フローの基本原則
+| エージェント | 役割 |
+|---|---|
+| **Claude** | タスクマネジメント・統合判断 |
+| **Codex** | コーディング・実装 |
+| **Gemini** | 調査・分析 |
 
-#### レイヤー1: ワークフロー（10-30番台）
-- `10-git-strategy.md`: Git戦略（統一版）
-- `11-testing-strategy.md`: テスト戦略（TDD、品質保証）
-- `12-security-guidelines.md`: セキュリティ原則
+#### モードB: Claude単体サブエージェント協調（`agent-rules/91-claude-subagent-coding.md`）
 
-#### レイヤー2: プロジェクト管理（30-50番台）
-- `30-documentation-management.md`: ドキュメント管理
+メインClaudeはオーケストレーターに徹し、`.claude/agents/` 配下のサブエージェントを起動して相互レビューでコーディングを進める。
 
-#### レイヤー3: 品質保証（50-70番台）
-- `50-production-reliability.md`: プロダクション信頼性
+| Worker | 役割 | 権限 |
+|---|---|---|
+| **Planner** | 実装戦略の設計・タスク分解 | read-only |
+| **Coder** | テストファースト実装 | Edit / Write |
+| **Reviewer** | 相互レビュー・品質チェック | read-only |
+| **Git-composer** | アトミックコミット・PR作成 | git操作 |
 
-#### レイヤー4: 環境固有（70-89番台）
-- `70-docker-environments.md`: Docker環境管理
+codex / gemini-cli MCP が無効な環境で自動的にモードB が選択される。
 
-#### レイヤー5: 特殊戦略（90番台以降）
-- `90-agentic-coding.md`: **Agentic Coding役割分担戦略**
+### レイヤー化されたルール体系
+
+`agent-rules/` 配下に番号順にレイヤー構成。番号が大きいほど優先度が高い。
+
+| レイヤー | 範囲 | 内容 |
+|---|---|---|
+| 0 | 00-09 | 基盤原則（絶対遵守） |
+| 1 | 10-29 | ワークフロー（Git / テスト / セキュリティ / 可読性 / フロントエンド） |
+| 2 | 30-49 | プロジェクト管理（ドキュメント） |
+| 3 | 50-69 | 品質保証（プロダクション信頼性） |
+| 4 | 70-89 | 言語・環境固有（Docker等） |
+| 5 | 90- | 特殊戦略（エージェント連携） |
+
+ファイル一覧は `agent-rules/README.md` を参照。
 
 ## 使用方法
 
-### 1. プロジェクトの初期設定
+### 1. 初期設定
 
 ```bash
-# このテンプレートをクローンまたはダウンロード
 git clone <このリポジトリのURL>
 cd projectTemplate
 
-# 必要に応じて.mcp.jsonを環境に合わせて調整
+# 必要に応じて .mcp.json を環境に合わせて調整
 ```
 
-### 2. 開発環境の設定
+### 2. MCPサーバー
 
-#### MCPサーバーの設定
-`.mcp.json`ファイルで以下のMCPサーバーが設定済み：
-- **gemini-cli**: Google Gemini APIを使用した調査・分析
-- **codex**: OpenAI Codexを使用したコーディング支援
+`.mcp.json` で以下が設定済み:
+- **gemini-cli**: Google Gemini APIによる調査・分析
+- **codex**: OpenAI Codexによるコーディング支援
 
-#### Claude Code設定
-`.claude/settings.local.json`で Claude Code固有の設定を管理（存在する場合）
+Claude Code固有の設定は `.claude/settings.local.json` で管理（存在する場合）。
 
 ### 3. 開発ワークフロー
 
-#### 通常の開発タスク
 1. Claudeにタスクを日本語で依頼
-2. Claudeがタスクを分解し、適切なエージェントに割り当て
-3. Codexが`development/feature/xxx`ブランチで実装
-4. Geminiが必要に応じて技術調査を実施
-5. Claudeが統合判断を行い、developブランチへマージ
+2. Claudeがタスクを分解し適切なエージェントに割り当て
+3. Codexが `development/feature/<task>` ブランチで実装
+4. Geminiが必要に応じて `development/research/<topic>` で調査
+5. Claudeが統合判断し develop へマージ
 
-#### ブランチ戦略
+### ブランチ戦略概要
+
 ```
 main (プロダクション)
-├── develop (統合開発)
-└── development/ (Agentic coding専用)
-    ├── feature/ (Codex開発ブランチ)
-    └── research/ (Gemini調査ブランチ)
+└── develop (統合開発)
+    └── development/ (Agentic coding専用)
+        ├── feature/ (Codex)
+        └── research/ (Gemini)
 ```
+
+詳細は `agent-rules/10-git-strategy.md` と `agent-rules/90-agentic-coding.md`。
 
 ## 重要な原則
 
-### 1. デグレッション防止最優先
-- 既存の動作している機能を絶対に壊さない
-- 新機能追加時は既存テストが全て通ることを確認
+1. **デグレ防止最優先**: 既存の動作を絶対に壊さない
+2. **TDD（t-wada方式）**: Red-Green-Refactorを厳守
+3. **日本語コミュニケーション**: ユーザー出力・コメント・コミットは日本語
 
-### 2. Test-Driven Development (TDD)
-- t-wada推奨手法の厳格な遵守
-- Red-Green-Refactorサイクルの徹底
-- テストを生きた仕様書として活用
-
-### 3. 日本語でのコミュニケーション
-- ユーザー向けのすべての出力は日本語
-- コメント・エラーメッセージも日本語
-- ただし変数名・関数名は英語慣習に従う
+詳細は `agent-rules/00-core-principles.md`。
 
 ## ファイル構成
 
 ```
 .
-├── README.md                    # このファイル
-├── CLAUDE.md                    # Claude Code用指示書
-├── .mcp.json                    # MCPサーバー設定
-├── .claude/                     # Claude Code設定ディレクトリ
-│   └── settings.local.json      # ローカル設定（任意）
-└── agent-rules/                 # エージェント動作ルール
-    ├── 00-core-principles.md     # 基盤原則（最優先）
-    ├── 01-claude-behavior.md     # Claude専用制約
-    ├── 02-development-workflow.md
-    ├── 10-git-strategy.md
-    ├── 11-testing-strategy.md
-    ├── 12-security-guidelines.md
-    ├── 30-documentation-management.md
-    ├── 50-production-reliability.md
-    ├── 70-docker-environments.md
-    └── 90-agentic-coding.md      # Agentic Coding戦略
+├── README.md                # このファイル
+├── CLAUDE.md                # Claude Code用
+├── AGENT.md                 # 汎用エージェント用
+├── GEMINI.md                # Gemini-cli用
+├── .mcp.json                # MCPサーバー設定
+├── .claude/
+│   ├── settings.local.json
+│   └── agents/              # モードB用サブエージェント定義
+│       ├── planner.md
+│       ├── coder.md
+│       ├── reviewer.md
+│       └── git-composer.md
+└── agent-rules/             # ルールセット（README.md参照）
 ```
-
-## ルールの優先順位
-
-- **番号が大きいファイルが高優先度**
-- **🔴マーク**: 絶対遵守必須
-- **🟠マーク**: 高優先度
-- **矛盾時は番号の大きいファイルを優先**
 
 ## カスタマイズ
 
-### 新しいルールの追加
-適切なレイヤーと番号を選択してルールファイルを追加：
-- **基盤変更**: 00-10番台（慎重に検討）
-- **ワークフロー追加**: 10-30番台
-- **プロジェクト管理**: 30-50番台
-- **品質関連**: 50-70番台
-- **技術固有**: 70-89番台
-- **特殊戦略**: 90番台以降
+新規ルールは番号体系に従って追加:
 
-### プロジェクト固有の調整
-1. 言語固有のルール（例：`71-python-specific.md`）
-2. フレームワーク固有のルール（例：`72-django-guidelines.md`）
-3. 組織固有のルール（例：`91-company-standards.md`）
-
-## サポート
-
-このテンプレートに関する質問や改善提案は、プロジェクト管理者にお問い合わせください。
+| 範囲 | 用途 |
+|---|---|
+| 00-09 | 基盤変更（慎重に） |
+| 10-29 | ワークフロー追加 |
+| 30-49 | プロジェクト管理 |
+| 50-69 | 品質関連 |
+| 70-89 | 技術固有（例: `71-python-specific.md`） |
+| 90- | 特殊戦略 |
 
 ## ライセンス
 
-このプロジェクトテンプレートはMITライセンスの下で提供されています。
+MIT
+# AudioNews

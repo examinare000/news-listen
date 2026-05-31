@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(git add *)",
+      "Bash(git *)",
+      "Bash(/Users/rio/.agents/skills/agmsg/scripts/watch.sh 71bf4fc2-1c8e-4f36-a3d2-f4c2ff591e41 /Users/rio/git/AudioNews claude-code)",
+      "Bash(~/.agents/skills/agmsg/scripts/inbox.sh *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "gemini-cli",
+    "codex"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/rio/.agents/skills/agmsg/scripts/session-start.sh' 'claude-code' '/Users/rio/git/AudioNews'"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/rio/.agents/skills/agmsg/scripts/session-end.sh'   'claude-code' '/Users/rio/git/AudioNews'"
+          }
+        ]
+      }
+    ]
+  }
+}

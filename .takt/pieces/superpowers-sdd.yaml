@@ -1,0 +1,133 @@
+name: superpowers-sdd
+description: "taktの堅牢なステートマシンに、superpowersのTDD規律、セキュリティ、ドキュメント同期、そしてClaude Codeの各種Sub-agent品質ゲートを完全融合させた自律型仕様駆動開発ワークフロー"
+max_steps: 30
+initial_step: analyze_order
+
+personas:
+  architect: ../facets/personas/architect.md
+  coder: ../facets/personas/coder.md
+  git-operator: ../facets/personas/git-operator.md
+
+policies:
+  superpowers-tdd: ../facets/policies/superpowers-tdd.md
+  security-and-privacy: ../facets/policies/security-and-privacy.md
+  documentation-sync: ../facets/policies/documentation-sync.md
+
+steps:
+  - name: analyze_order
+    edit: false
+    persona: architect
+    instruction: |
+      現在の注文（ユーザーからの要望や order.md）を確認し、既存のコードベースと照らし合わせて実装に必要な前提条件、制約事項、影響範囲を分析してください。
+      不明な点や、既存設計と衝突しそうな懸念点があればこの段階でリストアップしてください。
+    rules:
+      - condition: "注文内容が明確であり、仕様策定に進む準備が整った"
+        next: generate_spec
+      - condition: "注文内容に致命的な矛盾や不足があり、人間の介入が必要である"
+        next: COMPLETE
+
+  - name: generate_spec
+    edit: true
+    persona: architect
+    instruction: |
+      分析結果を元に、プロジェクトのドキュメントまたは一時ディレクトリに以下の2つのファイルを生成（または更新）してください。
+      1. `spec.md`: 実装すべき機能の明確な仕様、エッジケース、入力/出力の定義
+      2. `plan.md`: 実装手順を限界まで細分化したタスクリスト（各タスクにテスト方法を明記）
+    rules:
+      - condition: "spec.md と plan.md が漏れなく作成・更新された"
+        next: review_spec
+
+  - name: review_spec
+    edit: false
+    instruction: |
+      作成された仕様とプランの技術的妥当性を検証するため、spec-reviewerサブエージェントを起動してください。
+      spec.md と plan.md を既存コードと照らし合わせて冷徹に検証させてください。
+      特に既存ロジックとの衝突やテスト容易性をチェックさせてください。
+
+      返ってきた【判定】を確認し、以下のルールに従って遷移してください。
+    rules:
+      - condition: "spec-reviewerの判定が PASS または CONDITIONAL PASS である"
+        next: execute_tdd
+      - condition: "spec-reviewerの判定が REJECT であり、仕様やプランの再設計が必要である"
+        next: generate_spec
+
+  - name: execute_tdd
+    edit: true
+    persona: coder
+    policy: superpowers-tdd
+    instruction: |
+      `plan.md` に従い、実際のコード実装を行います。
+      鉄則（THE IRON LAW）を強制するため、必ず「先にテスト（RED）を書いてから」プロダクションコードを実装（GREEN）するサイクルを厳守してください。
+
+      すべてのタスクの進捗と、テストがすべてパスしたかどうかを確認してください。
+    rules:
+      - condition: "すべての実装タスクが完了し、関連する自動テストがすべてPASSした"
+        next: review_ai_antipattern
+      - condition: "テストがパスしない、または実装中に深刻なバグや設計の破綻が発覚した"
+        next: fix_implementation
+
+  - name: fix_implementation
+    edit: true
+    persona: coder
+    instruction: |
+      現在発生しているテストエラー、コンパイルエラー、または不具合のログを精査してください。
+      その場しのぎの修正（モグラ叩き）は厳禁です。systematic-debuggingアプローチ（根本原因に対する仮説検証）を用いて、ロジックを修正してください。
+    rules:
+      - condition: "バグ修正が完了し、再度TDDサイクルおよび実装を進める準備ができた"
+        next: execute_tdd
+
+  - name: review_ai_antipattern
+    edit: false
+    persona: ai-antipattern-reviewer
+    instruction: |
+      実装完了したコードに対し、AI特有の手抜きやコードの破壊がないかを厳しく検証してください。
+      現在の git diff を確認し、サイレント削除やハッピーパス偏重、その場しのぎの修正（as any等）がないか徹底レビューしてください。
+    rules:
+      - condition: "ai-antipattern-reviewerの判定が CLEAR または WARNING である"
+        next: review_code_quality
+      - condition: "ai-antipattern-reviewerの判定が BLOCKED であり、手抜きの修正・リファクタが必要である"
+        next: fix_implementation
+
+  - name: review_code_quality
+    edit: false
+    instruction: |
+      動くようになったコードを、本番環境にデプロイできるクオリティまで引き上げます。
+      今回変更したコードとテストコードをレビューしてください。
+      SOLID原則やクリーンコード、セキュリティの観点からリファクタリングすべき点があれば具体的なコード例付きで指摘してください。
+    rules:
+      - condition: "quality-reviewerの判定が APPROVED である"
+        next: sync_documentation
+      - condition: "quality-reviewerの判定が REQUEST CHANGES である"
+        next: fix_implementation
+
+  - name: sync_documentation
+    edit: true
+    policy: documentation-sync
+    instruction: |
+      今回のコード変更に伴い、README.md、.env.example、あるいはコード内のインラインコメント等に変更が必要ないか確認してください。
+      必要であれば、コードと乖離がないようにドキュメントを修正・更新してください。
+    rules:
+      - condition: "ドキュメントの同期が完了した、または更新が不要であることを確認した"
+        next: final_verification
+
+  - name: final_verification
+    edit: false
+    instruction: |
+      プロジェクト全体のビルドおよび全テスト（関連するすべての回帰テスト）を実行し、今回の変更によって既存機能が壊れていないか（エンバグしていないか）を最終確認してください。
+    rules:
+      - condition: "プロジェクト全体のビルドとすべてのテストが完全に成功した"
+        next: final_git_delivery
+      - condition: "全体テストで失敗（デグレード）が検出された"
+        next: fix_implementation
+
+  - name: final_git_delivery
+    edit: true
+    persona: git-operator
+    policy: security-and-privacy
+    instruction: |
+      1. `git status` と `git diff` を確認し、セキュリティポリシーに従って、不要なデバッグログやAPIキーのハードコードが混入していないか最終目視をしてください。
+      2. 問題がなければ、Conventional Commitsに準拠した美しいメッセージでコミットを小分けにして作成してください。
+      3. 最後に、人間がレビューするための「Pull Requestのタイトルと説明文（Markdown）」を生成し、完了報告とともに画面に出力してください。
+    rules:
+      - condition: "安全確認が完了し、GitコミットとPR説明文の作成が完了した"
+        next: COMPLETE
