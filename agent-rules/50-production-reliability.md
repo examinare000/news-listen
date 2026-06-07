@@ -1,131 +1,27 @@
 # 50. プロダクション信頼性
-
-防御的設計とインターフェース契約により、本番環境での予期せぬ障害を防ぐ。
-TDD・テストパターンの詳細は `11-testing-strategy.md` を参照。
+本番環境での障害を防ぐ防御的設計とインターフェース契約。テスト詳細は `11-testing-strategy.md`。
 
 ## 信頼性3原則
+1. **事前検証 (Test-First)**: エラーは本番ではなく、テスト環境で事前に発見・修正する（統合/エッジケーステスト必須）。
+2. **防御的設計 (Defensive Programming)**: 外部入力（API・設定・環境変数）はすべて疑い、Optional Chainingやデフォルト値（`metrics.security?.score ?? DEFAULT_SCORE`）で安全にフォールバックする。
+3. **契約検証 (Interface Contract)**: API/データ構造を明示的に検証し、構造不正時は早期に例外を投げる。
 
-### 1. Test-First Error Discovery
+## デバッグ・修正基準
+- **デバッグ**: 再現テスト ➔ 原因特定 ➔ 最小修正 ➔ テスト検証 ➔ 回帰テスト。
+- **品質基準**: 1修正=1問題（単一責任）、既存影響の最小化、テスト可能、理由/内容の文書化。
 
-> エラーは本番で発見するのではなく、テスト環境で事前に発見・修正する
+## エラーハンドリング＆リソース管理
+- **エラー処理**: ドメイン例外と予期せぬ例外の区別。ユーザー向けには汎用エラー、ログには詳細情報とスタックトレースを記録する。
+- **リソース管理**: 外部呼出には必ずタイムアウトを設定。同時実行数を制限し、`finally` や `with` 文でリソースを確実に解放する。
 
-統合テスト・エッジケーステストを必須化する。
+## 品質チェックリスト
+- **テスト**: 全テスト (ユニット/統合/E2E/性能/セキュリティ) の通過。
+- **レビュー**: 防御的コード、適切なエラー処理、明確なインターフェース契約、カバレッジ80%以上、適切なログ。
+- **デプロイ前**: 本番相当環境テスト、ロールバック手順、監視/アラート、脆弱性チェック。
 
-### 2. Defensive Programming by Default
-
-外部入力（API・設定・環境変数）はすべて疑う。デフォルト値で継続動作可能にする。
-
-```javascript
-// ❌ 危険: 直接プロパティアクセス
-const score = metrics.security.securityScore;
-
-// ✅ Optional Chaining + デフォルト値
-const score = metrics.security?.securityScore ?? DEFAULT_SECURITY_SCORE;
-```
-
-### 3. Interface Contract Verification
-
-API契約を明示化し、契約違反を実行時ではなく開発時に検出する。
-
-```javascript
-function processQuality(report) {
-  if (!report?.assessment?.overallScore) {
-    throw new Error('Invalid quality report structure');
-  }
-  return report.assessment.overallScore.toFixed(1);
-}
-```
-
-## 系統的デバッグアプローチ
-
-```
-1. エラーの再現   → テストケースで確実に再現
-2. 原因の特定     → ログ・デバッガで根本原因調査
-3. 修正の実装     → 最小限の変更で問題解決
-4. テストで検証   → 修正が問題を解決することを確認
-5. 回帰テスト     → 他機能に影響がないことを確認
-```
-
-## 修正品質基準
-
-- **単一責任**: 1修正 = 1問題
-- **最小影響**: 既存コードへの影響最小化
-- **テスト可能**: 修正内容をテストで検証可能
-- **文書化**: 修正理由と変更内容を記録
-
-## 堅牢なエラーハンドリング戦略
-
-```python
-class QualityEvaluator:
-    def evaluate_quality(self, codebase=None):
-        try:
-            codebase = codebase or {}
-            metrics = self._collect_metrics(codebase)
-            assessment = self._calculate_assessment(metrics)
-            return self._success_response(assessment)
-        except ValidationError as e:
-            self.logger.error(f'バリデーションエラー: {e}')
-            return self._error_response(f'入力データの検証に失敗: {e}')
-        except Exception as e:
-            self.logger.error(f'品質評価エラー: {e}', exc_info=True)
-            return self._error_response('処理中にエラーが発生しました')
-```
-
-ポイント:
-- 例外型ごとに区別（既知のドメイン例外 vs 予期せぬ例外）
-- ユーザー向けメッセージは汎用的に
-- 内部ログには `exc_info=True` でスタックトレース
-
-## リソース管理
-
-- **タイムアウト**: 全外部呼び出しに必須
-- **同時実行制限**: セマフォ等で並列度を制御
-- **リソース解放**: `finally` または `with` 文で確実に
-
-```python
-async with rm.managed_resource("quality_analysis"):
-    result = await analyze_quality(data)
-```
-
-## チェックリスト
-
-### 起動前
-- [ ] 全ユニット・統合・E2Eテストがパス
-- [ ] エラーハンドリング・パフォーマンステストがパス
-- [ ] セキュリティテストがパス
-
-### コードレビュー
-- [ ] 防御的プログラミングが実装されている
-- [ ] エラーハンドリングが適切
-- [ ] インターフェース契約が明確
-- [ ] テストカバレッジ80%以上
-- [ ] ログ・監視が適切
-
-### デプロイ前
-- [ ] 本番相当環境でのテスト完了
-- [ ] ロールバック手順確認済み
-- [ ] 監視・アラート設定済み
-- [ ] 依存関係の脆弱性チェック完了
-
-## 品質メトリクス監視
-
-- テスト成功率: 95%以上
-- 本番エラー発生率: 月1件未満
-- MTTR（平均復旧時間）: 30分以内
-- テストカバレッジ: 80%以上
-
-## インシデント対応フロー
-
-```
-1. 検知       (自動監視 / ユーザー報告)
-2. 初期対応   (影響範囲特定 / 応急処置)
-3. 根本原因   (ログ調査 / 再現テスト)
-4. 恒久対策   (修正実装 / テスト)
-5. 予防策     (再発防止の仕組み実装)
-6. 文書化     (インシデント報告書)
-7. 改善       (プロセス・監視の見直し)
-```
+## 監視・インシデント
+- **目標**: テスト成功率95%以上、MTTR 30分以内、テストカバレッジ80%以上。
+- **フロー**: 検知 ➔ 応急処置（影響遮断） ➔ 原因特定（ログ・再現） ➔ 恒久対策 ➔ 予防策 ➔ 文書化（ポストモーテム）。
 
 ---
-
-**適用優先度**: 🔴 最高（プロダクションコードに必須）
+**適用優先度**: 🔴 最高（プロダクションコード必須）

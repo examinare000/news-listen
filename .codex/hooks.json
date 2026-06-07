@@ -1,1 +1,0 @@
-{"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"'/Users/rio/.agents/skills/agmsg/scripts/check-inbox.sh' 'codex' '/Users/rio/git/AudioNews'"}]}]}}

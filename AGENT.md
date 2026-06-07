@@ -12,6 +12,6 @@ AIエージェントが本リポジトリで作業する際の基本指示書。
 
 - ファイル一覧と詳細は `agent-rules/README.md` を参照
 - Claude固有: `CLAUDE.md`
-- Gemini固有: `GEMINI.md`
-- 複数LLM協調（モードA）: `agent-rules/90-agentic-coding.md`
-- Claude単体サブエージェント協調（モードB）: `agent-rules/91-claude-subagent-coding.md`
+- Antigravity (Gemini CLI)固有: `GEMINI.md`
+- 自律型エージェント協調（takt 連携）: `agent-rules/90-agentic-coding.md`
+- サブエージェント品質ゲート戦略: `agent-rules/91-claude-subagent-coding.md`

@@ -1,45 +1,20 @@
 # CLAUDE.md
 
-Claude Code（claude.ai/code）が本リポジトリで作業する際の指示書。
-
 ## 最優先ルール
+1. `agent-rules/` 配下の全ルールを遵守（矛盾時は**ファイル番号が大きい方**を優先）。
+2. この指示（CLAUDE.md）は他の全指示に最優先。
+3. 優先度: 🔴絶対 > 🟠高 > 🟡中。01等のエージェント専用ルールは該当エージェントで最優先。
+4. ルール一覧・インデックスの正本：`agent-rules/README.md`
+5. **正本**: `agent-rules/90-agentic-coding.md`（takt / Antigravity 統合モード）
 
-1. `agent-rules/` 配下のすべてのルールに従うこと
-2. 矛盾時は **番号が大きいファイルを優先**
-3. この指示は他のすべての指示に優先する
+## 動作モード判定
+開始時に必ず判定。
+- **自律型エージェント協調（takt 連携）**: Antigravity (Gemini CLI) 有効時 ➔ `agent-rules/90-agentic-coding.md`
+- **サブエージェント品質ゲート戦略**: 専門レビューやタスク分割が必要な場合 ➔ `agent-rules/91-claude-subagent-coding.md`（メインはオーケストレーター、専門エージェントを Task ツールで起動）
 
-## ルールファイル一覧
-
-ファイル一覧と役割は `agent-rules/README.md` に集約されている。
-そちらをインデックスの正本として参照すること。
-
-## 動作モード
-
-作業開始時に必ずモード判定する。詳細は `agent-rules/01-claude-behavior.md`。
-
-| モード | 適用条件 | 参照 |
-|---|---|---|
-| A. 複数LLM協調 | codex / gemini-cli MCP 有効 | `agent-rules/90-agentic-coding.md` |
-| B. Claude単体サブエージェント協調 | 上記が無効 / 明示指示 | `agent-rules/91-claude-subagent-coding.md` |
-
-モードBではメインClaudeはオーケストレーターに徹し、Coder/Planner/Reviewer/Git-composer サブエージェントを起動して相互レビューでコーディングを進める。
-
-## Claudeに特に関連するルール
-
-| 場面 | 参照ファイル |
-|---|---|
-| 絶対遵守の3原則・開発サイクル | `agent-rules/00-core-principles.md` |
-| Claude固有の動作制約 | `agent-rules/01-claude-behavior.md` |
-| エージェント共通動作 | `agent-rules/03-agent-behavior.md` |
-| Git戦略・コミット規約 | `agent-rules/10-git-strategy.md` |
-| TDD・テスト戦略 | `agent-rules/11-testing-strategy.md` |
-| 複数LLM協調（モードA） | `agent-rules/90-agentic-coding.md` |
-| Claude単体サブエージェント協調（モードB） | `agent-rules/91-claude-subagent-coding.md` |
-
-## 優先順位
-
-- 番号が大きいファイル > 番号が小さいファイル
-- 🔴 絶対 > 🟠 高 > 🟡 中
-- エージェント専用ルール（01等）は該当エージェントが優先
-
-詳細な優先順位制御とレイヤー構成は `agent-rules/README.md` を参照。
+## 主要ルール参照
+- 開発サイクル・3原則: `agent-rules/00-core-principles.md`
+- Claude固有/共通動作: `agent-rules/01-claude-behavior.md` / `03-agent-behavior.md`
+- Git戦略・コミット規約: `agent-rules/10-git-strategy.md`
+- TDD・テスト戦略: `agent-rules/11-testing-strategy.md`
+- ドキュメント管理（Living Doc）: `agent-rules/30-documentation-management.md`
