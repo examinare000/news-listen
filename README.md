@@ -1,128 +1,142 @@
-# プロジェクトテンプレート
+# AudioNews
 
-複数のAIエージェント（Claude / Codex / Gemini）が協調して開発を行う「Agentic Coding」前提のテンプレート。
-レイヤー化された指示書体系で効率的かつ高品質な開発を実現する。
+海外テックニュースを自動収集し、AI が Podcast 形式の音声に変換する個人向けアプリ。
+通勤・家事中に耳でテックニュースをキャッチアップしながら英語リスニング練習もできる。
 
-## 特徴
+---
 
-### Agentic Coding対応（2モード）
+## 概要
 
-#### モードA: 複数LLM協調（`agent-rules/90-agentic-coding.md`）
+| 項目 | 内容 |
+|------|------|
+| ターゲット | 英語学習中のエンジニア（TOEIC 600〜900 相当）、最大 5 名の個人・ファミリー利用 |
+| ニュースソース | HackerNews・Zenn.dev（アプリ内から任意 RSS URL を追加可能） |
+| Podcast 生成 | Star した記事を 1〜2 分で音声化。日本語イントロ → 英語本編（男女掛け合い） |
+| 難易度 | TOEIC 600〜 / TOEIC 730-900 / IELTS 5.5-6.5 / IELTS 7.0+ / 英検2級 / 英検準1級 の 6 段階 |
+| 月次コスト | 約 $2.67（1 ユーザー・1 日 5 エピソード） |
 
-| エージェント | 役割 |
-|---|---|
-| **Claude** | タスクマネジメント・統合判断 |
-| **Codex** | コーディング・実装 |
-| **Gemini** | 調査・分析 |
+---
 
-#### モードB: Claude単体サブエージェント協調（`agent-rules/91-claude-subagent-coding.md`）
+## アーキテクチャ
 
-メインClaudeはオーケストレーターに徹し、`.claude/agents/` 配下のサブエージェントを起動して相互レビューでコーディングを進める。
+```
+[iOS App: SwiftUI]
+    │  X-API-Key 認証
+    ▼
+[Cloud Run Service: FastAPI]
+    ├── GET  /feed            レコメンド記事一覧
+    ├── POST /articles/:id/star    → Cloud Tasks にPodcast生成タスク投入
+    ├── POST /articles/:id/dismiss
+    ├── GET  /podcasts
+    └── GET/PUT /settings
 
-| Worker | 役割 | 権限 |
-|---|---|---|
-| **Planner** | 実装戦略の設計・タスク分解 | read-only |
-| **Coder** | テストファースト実装 | Edit / Write |
-| **Reviewer** | 相互レビュー・品質チェック | read-only |
-| **Git-composer** | アトミックコミット・PR作成 | git操作 |
+[Cloud Scheduler] 毎日 06:00 JST
+    ├── rss-fetcher-job     RSS 取得 → Firestore
+    └── recommendation-job  Gemini で関心スコア計算
 
-codex / gemini-cli MCP が無効な環境で自動的にモードB が選択される。
+[Cloud Tasks Worker]
+    記事本文取得 → Gemini 2.5 Flash でスクリプト生成
+    → Gemini TTS で音声合成 → Cloud Storage に MP3 保存
+    → Push 通知
+```
 
-### レイヤー化されたルール体系
+### 使用サービス
 
-`agent-rules/` 配下に番号順にレイヤー構成。番号が大きいほど優先度が高い。
+| レイヤー | サービス |
+|----------|---------|
+| iOS | SwiftUI, AVFoundation, iOS 17+ |
+| バックエンド | Python 3.12, FastAPI, Cloud Run, Cloud Tasks |
+| バッチ | Cloud Run Jobs, Cloud Scheduler |
+| AI | Gemini 2.5 Flash（スクリプト生成・レコメンド）+ Gemini TTS（音声合成） |
+| ストレージ | Firestore（データ）, Cloud Storage（音声ファイル） |
+| 認証・設定 | Secret Manager |
 
-| レイヤー | 範囲 | 内容 |
-|---|---|---|
-| 0 | 00-09 | 基盤原則（絶対遵守） |
-| 1 | 10-29 | ワークフロー（Git / テスト / セキュリティ / 可読性 / フロントエンド） |
-| 2 | 30-49 | プロジェクト管理（ドキュメント） |
-| 3 | 50-69 | 品質保証（プロダクション信頼性） |
-| 4 | 70-89 | 言語・環境固有（Docker等） |
-| 5 | 90- | 特殊戦略（エージェント連携） |
+---
 
-ファイル一覧は `agent-rules/README.md` を参照。
+## ディレクトリ構成
 
-## 使用方法
+```
+AudioNews/
+├── backend/          # Python (FastAPI) バックエンド
+│   ├── shared/       # 共通モデル・Firestore/Storage/Gemini クライアント
+│   ├── jobs/         # Cloud Run Jobs（RSS取得・レコメンド・Podcast生成）
+│   ├── api/          # FastAPI REST API
+│   └── tests/        # pytest テストスイート
+├── ios/              # Swift iOS アプリ
+├── infra/            # GCP セットアップスクリプト
+├── docs/
+│   ├── prd/          # PRD（要件定義）
+│   ├── design/       # UI/バックエンド設計ドキュメント
+│   └── superpowers/  # 実装プラン
+└── .env.example      # 環境変数テンプレート
+```
 
-### 1. 初期設定
+---
+
+## セットアップ
+
+### 前提条件
+
+- Python 3.12+
+- `gcloud` CLI（認証済み）
+- GCP プロジェクト作成済み
+
+### 1. 環境変数
 
 ```bash
-git clone <このリポジトリのURL>
-cd projectTemplate
-
-# 必要に応じて .mcp.json を環境に合わせて調整
+cp .env.example .env
+# .env に GCP_PROJECT_ID, GEMINI_API_KEY, OPENAI_API_KEY, API_KEY を設定
 ```
 
-### 2. MCPサーバー
+### 2. GCP リソース作成
 
-`.mcp.json` で以下が設定済み:
-- **gemini-cli**: Google Gemini APIによる調査・分析
-- **codex**: OpenAI Codexによるコーディング支援
-
-Claude Code固有の設定は `.claude/settings.local.json` で管理（存在する場合）。
-
-### 3. 開発ワークフロー
-
-1. Claudeにタスクを日本語で依頼
-2. Claudeがタスクを分解し適切なエージェントに割り当て
-3. Codexが `development/feature/<task>` ブランチで実装
-4. Geminiが必要に応じて `development/research/<topic>` で調査
-5. Claudeが統合判断し develop へマージ
-
-### ブランチ戦略概要
-
-```
-main (プロダクション)
-└── develop (統合開発)
-    └── development/ (Agentic coding専用)
-        ├── feature/ (Codex)
-        └── research/ (Gemini)
+```bash
+bash infra/setup.sh
 ```
 
-詳細は `agent-rules/10-git-strategy.md` と `agent-rules/90-agentic-coding.md`。
+### 3. バックエンド（ローカル開発）
 
-## 重要な原則
+```bash
+cd backend
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
 
-1. **デグレ防止最優先**: 既存の動作を絶対に壊さない
-2. **TDD（t-wada方式）**: Red-Green-Refactorを厳守
-3. **日本語コミュニケーション**: ユーザー出力・コメント・コミットは日本語
+# テスト
+python -m pytest tests/ -v
 
-詳細は `agent-rules/00-core-principles.md`。
-
-## ファイル構成
-
-```
-.
-├── README.md                # このファイル
-├── CLAUDE.md                # Claude Code用
-├── AGENT.md                 # 汎用エージェント用
-├── GEMINI.md                # Gemini-cli用
-├── .mcp.json                # MCPサーバー設定
-├── .claude/
-│   ├── settings.local.json
-│   └── agents/              # モードB用サブエージェント定義
-│       ├── planner.md
-│       ├── coder.md
-│       ├── reviewer.md
-│       └── git-composer.md
-└── agent-rules/             # ルールセット（README.md参照）
+# サーバー起動
+API_KEY=dev uvicorn api.main:app --reload
 ```
 
-## カスタマイズ
+### 4. iOS アプリ
 
-新規ルールは番号体系に従って追加:
+Xcode 16 以上で `ios/TechNewsPodcast.xcodeproj` を開き、ビルド・実行。
+初回起動時に表示される設定画面で Cloud Run の API URL と API キーを入力。
 
-| 範囲 | 用途 |
-|---|---|
-| 00-09 | 基盤変更（慎重に） |
-| 10-29 | ワークフロー追加 |
-| 30-49 | プロジェクト管理 |
-| 50-69 | 品質関連 |
-| 70-89 | 技術固有（例: `71-python-specific.md`） |
-| 90- | 特殊戦略 |
+---
 
-## ライセンス
+## 機能一覧
 
-MIT
-# AudioNews
+### Feed タブ
+- HackerNews・Zenn 等の RSS を毎日自動収集
+- Gemini による過去の Star/Dismiss 履歴に基づくパーソナライズ表示
+- 右スワイプ → Star（Podcast 生成キューに追加）
+- 左スワイプ → Dismiss（非表示・翌日以降も除外）
+
+### Podcast タブ
+- Star した記事が 1〜2 分で Podcast に変換される
+- 日本語イントロ（記事概要）→ 英語本編（掛け合い形式）
+- 難易度・再生速度（×0.5〜×2.5）の調整
+- 再生位置の秒単位保存
+
+### Settings タブ
+- RSS ソースの追加・削除
+- デフォルト難易度・再生速度の設定
+
+---
+
+## ドキュメント
+
+- [PRD](docs/prd/2026-05-31-audio-news.md) — 要件定義・システムアーキテクチャ詳細
+- [バックエンド実装プラン](docs/superpowers/plans/2026-05-31-backend.md)
+- [iOS 実装プラン](docs/superpowers/plans/2026-05-31-ios-app.md)
