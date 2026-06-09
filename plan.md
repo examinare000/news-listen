@@ -1,19 +1,19 @@
 # AudioNews 実装プラン (plan.md)
 
 ## 1. 進捗サマリー
-- **インフラ/環境セットアップ**: 0% (0/2)
-- **バックエンド (Python/FastAPI)**: 8% (1/13)
+- **インフラ/環境セットアップ**: 100% (2/2) ✅
+- **バックエンド (Python/FastAPI)**: 15% (2/13)
 - **Web フロントエンド (Next.js/TS)**: 0% (0/6)
 - **iOS アプリ (SwiftUI)**: 0% (0/8)
-- **全体進捗率**: 3% (1/29)
+- **全体進捗率**: 14% (4/29)
 
 ---
 
 ## 2. インフラ・共通タスク
-- [ ] **Task I-1: ローカル環境構築**
-  - `.env` ファイルの設定。
-- [ ] **Task I-2: GCP リソースセットアップ**
-  - `infra/setup.sh` のドライラン及び実行による GCP API 有効化、Firestore / GCS バケット / Cloud Tasks / Service Account / Secret Manager / Artifact Registry の作成。
+- [x] **Task I-1: ローカル環境構築**
+  - `.env` ファイル設定済み（全キー保存済み）。
+- [x] **Task I-2: GCP リソースセットアップ**
+  - プロジェクト `audio-news-20260531`。Firestore・GCS バケット・Cloud Tasks キュー・SA（`audio-news-sa`）・Secret Manager・Artifact Registry すべて作成済み。
 
 ---
 
@@ -22,8 +22,8 @@
 
 - [x] **Task B-1: Python 環境セットアップ**
   - `pyproject.toml`, `requirements.txt`, `requirements-dev.txt` 作成。仮想環境構築と依存関係インストール。
-- [ ] **Task B-2: 共有データモデル定義**
-  - `shared/models.py` (Article, UserPrefs, Recommendation, Podcast) 実装及びテスト。
+- [x] **Task B-2: 共有データモデル定義**
+  - `shared/models.py` (Article, RssSource, UserPrefs, Recommendation, Podcast) を Pydantic BaseModel で実装。24 テスト pass。
 - [ ] **Task B-3: Firestore クライアント実装**
   - `shared/firestore_client.py` 実装及びテスト（モック使用）。
 - [ ] **Task B-4: Storage & Gemini クライアント実装**
