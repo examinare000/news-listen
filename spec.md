@@ -22,8 +22,8 @@
 ### 2.2 外部サービス & API
 - **AI 処理**: Gemini 2.5 Flash（スクリプト生成、レコメンド関心スコア計算、Context Caching の利用）
 - **音声合成 (TTS)**:
-  - メイン: OpenAI TTS（話者A/Bの演じ分け、高速並列処理）
-  - フォールバック / 代替: Google Cloud TTS または Gemini TTS
+  - **MVP**: Gemini TTS のみ（`gemini-2.5-flash-preview-tts`）。日本語イントロと英語本編を結合。
+  - **Post-MVP**: OpenAI TTS（話者A/B演じ分け・高速並列処理）へ移行予定。`audio-news-openai-key` Secret は作成済みだが未使用。
 
 ---
 
@@ -56,16 +56,18 @@
 ## 4. 主要 API エンドポイント
 バックエンドは以下の REST API を提供する。リクエストには `X-API-Key` ヘッダーによる認証が必要。
 
-| メソッド | パス | 説明 |
-| :--- | :--- | :--- |
-| GET | `/feed` | レコメンド済み記事一覧を取得 |
-| POST | `/articles/{id}/star` | 記事を Star 状態にし、Podcast 生成キューに投入 |
-| POST | `/articles/{id}/dismiss` | 記事を Dismiss（非表示）にする |
-| GET | `/podcasts` | 生成された Podcast エピソード一覧を取得 |
-| GET | `/podcasts/{id}` | 指定エピソードの詳細・音声URLを取得 |
-| PATCH | `/podcasts/{id}/position` | 再生位置（秒）を更新 |
-| GET | `/settings` | ユーザー設定（RSSソース、デフォルト難易度など）を取得 |
-| PUT | `/settings` | ユーザー設定を更新 |
+| メソッド | パス | 説明 | MVP |
+| :--- | :--- | :--- | :--- |
+| GET | `/feed` | レコメンド済み記事一覧を取得 | ✅ |
+| POST | `/articles/{id}/star` | 記事を Star 状態にし、Podcast 生成キューに投入 | ✅ |
+| POST | `/articles/{id}/dismiss` | 記事を Dismiss（非表示）にする | ✅ |
+| GET | `/podcasts` | 生成された Podcast エピソード一覧を取得 | ✅ |
+| GET | `/podcasts/{id}` | 指定エピソードの詳細・音声URLを取得 | ✅ |
+| GET | `/settings/sources` | 購読中の RSS ソース一覧を取得 | ✅ |
+| POST | `/settings/sources` | RSS ソースを追加 | ✅ |
+| DELETE | `/settings/sources?url=...` | RSS ソースを削除 | ✅ |
+| PATCH | `/podcasts/{id}/position` | 再生位置（秒）を更新 | Post-MVP |
+| GET | `/health` | ヘルスチェック | ✅ |
 
 ---
 
@@ -104,7 +106,7 @@
 ```
 
 ### 5.3 `recommendations` コレクション
-日次でユーザーごとに作成されるレコメンド順序。
+日次でユーザーごとに作成されるレコメンド順序。ドキュメント ID は `{user_id}_{date}`。
 ```json
 {
   "user_id": "string",
@@ -112,18 +114,18 @@
   "articles": [
     { "article_id": "string", "score": 0.95 }
   ],
-  "generated_at": "timestamp"
+  "generated_at": "timestamp"  // 必須（nullable でない）
 }
 ```
 
 ### 5.4 `podcasts` コレクション
-生成された Podcast エピソードの情報。
+生成された Podcast エピソードの情報。ドキュメント ID は UUID。
 ```json
 {
   "id": "string",
   "type": "single" | "digest",
   "article_ids": "string[]",
-  "difficulty": "string",
+  "difficulty": "string",          // "toeic_600" | "toeic_900" | "ielts_55" | "ielts_7" | "eiken_2" | "eiken_p1"
   "audio_url": "string",
   "japanese_intro_text": "string",
   "duration_seconds": 300,
@@ -131,6 +133,7 @@
   "error_message": "string | null",
   "created_at": "timestamp",
   "user_id": "string"
+  // Post-MVP: "playback_position_seconds": 0, "completed_at": "timestamp | null"
 }
 ```
 
