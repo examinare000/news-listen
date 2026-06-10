@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# infra/setup.sh — AudioNews GCP リソース一括セットアップ
+# infra/setup.sh — news-listen GCP リソース一括セットアップ
 #
 # 使い方:
 #   bash infra/setup.sh          # 通常実行
@@ -150,14 +150,14 @@ OK "ライフサイクルルール設定完了"
 # ── 5. サービスアカウント作成 ─────────────────────────────────
 STEP "5. サービスアカウント作成"
 
-SA_NAME="audio-news-sa"
+SA_NAME="news-listen-sa"
 SA_EMAIL="$SA_NAME@$GCP_PROJECT_ID.iam.gserviceaccount.com"
 
 if gcloud iam service-accounts describe "$SA_EMAIL" --project="$GCP_PROJECT_ID" &>/dev/null; then
   OK "サービスアカウントはすでに存在します: $SA_EMAIL"
 else
   run gcloud iam service-accounts create "$SA_NAME" \
-    --display-name="AudioNews App" \
+    --display-name="news-listen App" \
     --project="$GCP_PROJECT_ID"
   OK "サービスアカウント作成完了: $SA_EMAIL"
 fi
@@ -210,10 +210,10 @@ store_secret() {
   OK "シークレット完了: $name"
 }
 
-store_secret "${SECRET_NAME_API_KEY:-audio-news-api-key}"    "$API_KEY"
-store_secret "${SECRET_NAME_GEMINI:-audio-news-gemini-key}"  "$GEMINI_API_KEY"
+store_secret "${SECRET_NAME_API_KEY:-news-listen-api-key}"    "$API_KEY"
+store_secret "${SECRET_NAME_GEMINI:-news-listen-gemini-key}"  "$GEMINI_API_KEY"
 if [[ -n "$OPENAI_API_KEY" ]]; then
-  store_secret "${SECRET_NAME_OPENAI:-audio-news-openai-key}"  "$OPENAI_API_KEY"
+  store_secret "${SECRET_NAME_OPENAI:-news-listen-openai-key}"  "$OPENAI_API_KEY"
 else
   WARN "OPENAI_API_KEY が未設定のため Secret Manager への登録をスキップ（MVP では不要）"
 fi
@@ -221,7 +221,7 @@ fi
 # ── 7. Artifact Registry リポジトリ作成 ───────────────────────
 STEP "7. Artifact Registry リポジトリ作成"
 
-AR_REPO="${GCP_AR_REPO:-audio-news}"
+AR_REPO="${GCP_AR_REPO:-news-listen}"
 
 if gcloud artifacts repositories describe "$AR_REPO" \
     --location="$GCP_REGION" \
@@ -231,7 +231,7 @@ else
   run gcloud artifacts repositories create "$AR_REPO" \
     --repository-format=docker \
     --location="$GCP_REGION" \
-    --description="AudioNews Docker images" \
+    --description="news-listen Docker images" \
     --project="$GCP_PROJECT_ID"
   OK "Artifact Registry リポジトリ作成完了: $AR_REPO"
 fi
