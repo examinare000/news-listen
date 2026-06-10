@@ -4,7 +4,6 @@
 .env.*.local
 *.env
 !.env.example
-
 # GCP service account keys (never commit)
 *-key.json
 *-credentials.json
@@ -67,7 +66,10 @@ ios/.build/
 .idea/
 *.swp
 *.swo
-
+.claude/settings.local.json
+plan.md
+spec.md
+order.md
 # ── Misc ──────────────────────────────────────────────────────
 tmp/
 temp/

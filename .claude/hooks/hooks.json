@@ -1,9 +1,0 @@
-{
-    "hooks": {
-        "SessionStart": {
-            "commands": [
-                "bash -c 'CLAUDE_PLUGIN_ROOT=~/.claude/plugins/superpowers ~/.claude/plugins/superpowers/hooks/session-start'"
-            ]
-        }
-    }
-}

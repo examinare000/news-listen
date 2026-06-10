@@ -1,8 +1,0 @@
-language: ja
-provider: claude
-model: claude-sonnet-4-6
-provider_options:
-  claude:
-    # bubblewrap（サンドボックス）によるコマンドブロックを回避する設定
-    sandbox:
-      allow_unsandboxed_commands: true
