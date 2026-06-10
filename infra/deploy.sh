@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# infra/deploy.sh — AudioNews バックエンドを Cloud Run へデプロイ
+# infra/deploy.sh — news-listen バックエンドを Cloud Run へデプロイ
 #
 # 実行内容:
 #   1. Cloud Build で API・ジョブ両イメージをビルド & Artifact Registry へ push
@@ -59,8 +59,8 @@ set +a
 : "${GCP_REGION:?GCP_REGION が未設定です}"
 : "${GCP_BUCKET_NAME:?GCP_BUCKET_NAME が未設定です}"
 
-AR_REPO="${GCP_AR_REPO:-audio-news}"
-SA_EMAIL="audio-news-sa@$GCP_PROJECT_ID.iam.gserviceaccount.com"
+AR_REPO="${GCP_AR_REPO:-news-listen}"
+SA_EMAIL="news-listen-sa@$GCP_PROJECT_ID.iam.gserviceaccount.com"
 AR_HOST="$GCP_REGION-docker.pkg.dev"
 AR_BASE="$AR_HOST/$GCP_PROJECT_ID/$AR_REPO"
 
@@ -70,15 +70,15 @@ USER_ID="${DEPLOY_USER_ID:-default}"
 DIFFICULTY="${DEPLOY_DIFFICULTY:-toeic_900}"
 
 # Secret Manager 参照名
-SECRET_API_KEY="${SECRET_NAME_API_KEY:-audio-news-api-key}"
-SECRET_GEMINI="${SECRET_NAME_GEMINI:-audio-news-gemini-key}"
+SECRET_API_KEY="${SECRET_NAME_API_KEY:-news-listen-api-key}"
+SECRET_GEMINI="${SECRET_NAME_GEMINI:-news-listen-gemini-key}"
 
 # イメージタグ（git short sha があれば使う。なければ latest）
 TAG="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo latest)"
 
 INFO "プロジェクト:  $GCP_PROJECT_ID"
 INFO "リージョン:    $GCP_REGION"
-INFO "イメージ:      $AR_BASE/{audio-news-api,audio-news-jobs}:$TAG"
+INFO "イメージ:      $AR_BASE/{news-listen-api,news-listen-jobs}:$TAG"
 INFO "USER_ID:       $USER_ID"
 [[ "$DRY_RUN" == "1" ]] && WARN "ドライランモード — 実際の変更は行いません"
 
@@ -98,8 +98,8 @@ fi
 STEP "2. API を Cloud Run サービスとしてデプロイ"
 # --allow-unauthenticated: API は X-API-Key による独自認証を持つため、
 #   Cloud Run の IAM 認証は無効化し、アプリ層で認証する。
-run gcloud run deploy audio-news-api \
-  --image="$AR_BASE/audio-news-api:$TAG" \
+run gcloud run deploy news-listen-api \
+  --image="$AR_BASE/news-listen-api:$TAG" \
   --region="$GCP_REGION" \
   --platform=managed \
   --service-account="$SA_EMAIL" \
@@ -126,7 +126,7 @@ deploy_job() {
 
   local args=(
     run jobs deploy "$name"
-    --image="$AR_BASE/audio-news-jobs:$TAG"
+    --image="$AR_BASE/news-listen-jobs:$TAG"
     --region="$GCP_REGION"
     --service-account="$SA_EMAIL"
     --set-env-vars="$env_vars"
@@ -188,7 +188,7 @@ fi
 
 # ── 完了サマリー ───────────────────────────────────────────────
 if [[ "$DRY_RUN" != "1" ]]; then
-  API_URL="$(gcloud run services describe audio-news-api \
+  API_URL="$(gcloud run services describe news-listen-api \
     --region="$GCP_REGION" --project="$GCP_PROJECT_ID" \
     --format='value(status.url)' 2>/dev/null || echo '(取得失敗)')"
 else

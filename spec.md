@@ -1,4 +1,4 @@
-# AudioNews バックエンド実装仕様書 — Task 4〜13
+# news-listen バックエンド実装仕様書 — Task 4〜13
 
 > **対象スコープ**: `backend/` ディレクトリ内 Task 4〜13（Task 1〜3 完了済み）
 > **生成日**: 2026-06-10
@@ -11,7 +11,7 @@
 |------|------|
 | 実行環境 | Python 3.12 / FastAPI / Cloud Run (GCP) |
 | データストア | Cloud Firestore (Native モード, asia-northeast1) |
-| ファイルストレージ | Cloud Storage (`audio-news-20260531-podcasts`) |
+| ファイルストレージ | Cloud Storage (`news-listen-20260610-podcasts`) |
 | AI | Gemini 2.5 Flash (テキスト生成 + TTS) |
 | 認証 | X-API-Key ヘッダー固定キー (Secret Manager 管理) |
 
@@ -599,7 +599,7 @@ def client():
 ## 7. 制約・制限事項
 
 - **Task 13**: Dockerfile の作成 (Step 1〜3) のみ。GCP デプロイ (Step 4〜7) は実行しない
-- **GCS バケット名**: `audio-news-20260531-podcasts`（環境変数 `GCS_BUCKET_NAME` で注入）
-- **サービスアカウント**: `audio-news-sa@audio-news-20260531.iam.gserviceaccount.com`
-- **シークレット名**: `audio-news-api-key` (API キー), `audio-news-gemini-key` (Gemini API キー)
+- **GCS バケット名**: `news-listen-20260610-podcasts`（環境変数 `GCS_BUCKET_NAME` で注入）
+- **サービスアカウント**: `news-listen-sa@news-listen-20260610.iam.gserviceaccount.com`
+- **シークレット名**: `news-listen-api-key` (API キー), `news-listen-gemini-key` (Gemini API キー)
 - **Difficulty フィールド**: Enum 廃止。plain string として扱う（`"toeic_900"` 等）
