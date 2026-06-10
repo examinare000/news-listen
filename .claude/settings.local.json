@@ -6,7 +6,14 @@
       "Bash(git rm *)",
       "Bash(git commit *)",
       "Bash(git add *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(.venv/bin/pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(.venv/bin/python -m pytest *)",
+      "Bash(/opt/homebrew/bin/python3.12 --version)",
+      "Bash(file .venv/bin/python)",
+      "Bash(.venv/bin/python --version)",
+      "Bash(.venv/bin/python -c \"import google.genai, fastapi, feedparser, trafilatura; print\\('deps OK'\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,

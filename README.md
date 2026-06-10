@@ -85,7 +85,7 @@ AudioNews/
 
 ```bash
 cp .env.example .env
-# .env に GCP_PROJECT_ID, GEMINI_API_KEY, OPENAI_API_KEY, API_KEY を設定
+# .env に GCP_PROJECT_ID, GCS_BUCKET_NAME, GEMINI_API_KEY, API_KEY, USER_ID を設定
 ```
 
 ### 2. GCP リソース作成
