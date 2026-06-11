@@ -76,3 +76,6 @@ order.md
 tmp/
 temp/
 *.tmp
+
+# ローカルPoC用のSA鍵（絶対にコミットしない）
+infra/keys/
