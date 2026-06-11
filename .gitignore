@@ -76,3 +76,10 @@ order.md
 tmp/
 temp/
 *.tmp
+
+# サービスアカウント鍵（絶対にコミットしない）
+# ディレクトリ指定に加え、命名規約ベースでもどの階層でも除外する多層防御
+infra/keys/
+*-sa.json
+*-serviceaccount.json
+*.serviceaccount.json
