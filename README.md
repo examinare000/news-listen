@@ -109,16 +109,20 @@ bash infra/setup.sh
 
 ### 3. バックエンド（ローカル開発）
 
+バックエンドの venv 作成・依存インストール・実行はすべて [uv](https://docs.astral.sh/uv/) 経由で行う（`agent-rules/11-testing-strategy.md` に準拠）。`requirements.txt` を依存の正本とし、`uv pip install` で同期する。
+
 ```bash
 cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
 
-# テスト
-python -m pytest tests/ -v
+# venv 作成 & 依存インストール（初回のみ。再作成時は uv venv に --clear を付与）
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+
+# テスト（uv が作成した venv の python を明示実行。activate 不要）
+.venv/bin/python -m pytest tests/ -v
 
 # サーバー起動
-API_KEY=dev uvicorn api.main:app --reload
+API_KEY=dev .venv/bin/python -m uvicorn api.main:app --reload
 ```
 
 ### 4. Web フロントエンド（ローカル開発）
