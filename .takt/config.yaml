@@ -1,0 +1,15 @@
+language: ja
+provider: claude
+model: claude-sonnet-4-6
+provider_options:
+  claude:
+    # bubblewrap（サンドボックス）によるコマンドブロックを回避する設定
+    sandbox:
+      allow_unsandboxed_commands: true
+
+# usage limit 到達時のフォールバックチェーン（全エージェント共通）
+# primary: claude（Claude Code CLI。provider 設定で指定）
+# fallback: codex（OpenAI Codex CLI。Claude が rate_limit に達したら即 codex へ切替）
+rate_limit_fallback:
+  switch_chain:
+    - provider: codex

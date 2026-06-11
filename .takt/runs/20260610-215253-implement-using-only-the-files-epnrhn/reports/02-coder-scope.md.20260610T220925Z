@@ -1,0 +1,71 @@
+# Scope Declaration: Next.js Frontend Implementation
+
+## 作業ステップ
+- ステップ: implement (5/11)
+- ワークフロー: superpowers-sdd
+- Iteration: 8
+
+## 変更済みファイル一覧
+
+### 既存実装（前 iteration で作成済み・今回レビュー・微修正）
+
+| ファイル | 種類 | 変更内容 |
+|---------|------|---------|
+| `web/app/feed/page.tsx` | 修正 | 未使用の `const client` 変数を削除（dead code 除去） |
+
+### 実装済みファイル（今回レビュー・修正なし）
+
+#### 設定・型定義
+- `web/package.json` — Next.js 15, React 19, Vitest 設定
+- `web/tsconfig.json` — TypeScript strict mode, paths alias `@/*`
+- `web/vitest.config.ts` — jsdom 環境, `@vitejs/plugin-react`, `@/` alias
+- `web/next.config.ts` — App Router 設定
+- `web/types/index.ts` — 共通ドメイン型 (Article, Podcast, Source 等)
+
+#### ライブラリ
+- `web/lib/api.ts` — BFF プロキシ経由 API クライアント (`createApiClient`, `ApiError`)
+- `web/lib/config.ts` — localStorage キー定数
+- `web/lib/format.ts` — `formatDuration` (M:SS / H:MM:SS), `formatDate` (M/D HH:MM)
+
+#### コンテキスト
+- `web/contexts/AppContext.tsx` — グローバル状態管理 (`useReducer`, localStorage 復元)
+
+#### フック
+- `web/hooks/useAudioPlayer.ts` — Audio 再生制御 (8 速度, seek, volume, position 保存)
+- `web/hooks/useLocalStorage.ts` — SSR-safe localStorage hook
+
+#### コンポーネント
+- `web/components/NavigationBar.tsx` — Feed/Podcast/Subscriptions/Settings ナビ
+- `web/components/ArticleCard.tsx` — 記事カード (star/dismiss/score バー)
+- `web/components/PodcastCard.tsx` — Podcast カード (intro80, 続きから表示)
+- `web/components/AudioPlayerBar.tsx` — 音声プレイヤーバー (speed, seek, volume)
+- `web/components/ui/DifficultyBadge.tsx` — 難易度バッジ (6 種類)
+- `web/components/ui/Toast.tsx` — Toast 通知 (success/error, 3 秒自動消滅)
+- `web/components/ui/ConfirmDialog.tsx` — 確認ダイアログ (Escape キー対応)
+- `web/components/ui/SetupModal.tsx` — API 設定モーダル (validation, connection test)
+
+#### ページ
+- `web/app/layout.tsx` — AppProvider + ToastProvider + NavigationBar + AudioPlayerBar
+- `web/app/page.tsx` — `/feed` へリダイレクト
+- `web/app/feed/page.tsx` — Feed 一覧 (star/dismiss, エラー処理)
+- `web/app/podcast/page.tsx` — Podcast 一覧 (再生前に getPodcast 再取得 D7)
+- `web/app/podcast/[id]/page.tsx` — Podcast 詳細 (全文表示, 再生)
+- `web/app/settings/page.tsx` — 設定画面 (API URL/Key, 速度, 接続テスト)
+- `web/app/subscriptions/page.tsx` — 購読ソース管理 (追加/削除/ConfirmDialog)
+- `web/app/api/backend/[...path]/route.ts` — BFF プロキシ (SSRF 緩和, 502 フォールバック)
+
+## 影響範囲
+
+- **新規**: `web/` ディレクトリ全体（Next.js プロジェクト）
+- **既存ファイルへの変更**: なし（`web/` 以外）
+- **推定規模**: 約 1200 行（実装コード）+ 約 1500 行（テストコード）
+
+## 検証状況
+
+⚠️ **npm install 未実施**: sandbox 権限制約により `npm install` および `npm run test` コマンドが実行不可。
+手動で以下を実行する必要がある:
+```bash
+cd web && npm install && npm run test
+```
+
+コードレビューによる静的分析では、全テストが通過する実装が揃っていることを確認済み。
