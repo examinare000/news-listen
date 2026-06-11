@@ -95,6 +95,8 @@ APIS=(
   artifactregistry.googleapis.com
   cloudbuild.googleapis.com
   iam.googleapis.com
+  # 署名付き URL を IAM signBlob で生成するために必要
+  iamcredentials.googleapis.com
 )
 
 for api in "${APIS[@]}"; do
@@ -180,6 +182,18 @@ for role in "${ROLES[@]}"; do
     --quiet
 done
 OK "IAM ロール付与完了"
+
+# 署名付き URL 生成（IAM signBlob）用に SA が自分自身へ署名できる権限を付与する。
+# Cloud Run のコンピュート認証情報は秘密鍵を持たず、generate_signed_url() は
+# signBlob API 経由で署名するため roles/iam.serviceAccountTokenCreator が必要。
+# プロジェクト全体ではなく SA リソースへバインドし、他 SA への署名権限は与えない（最小権限）。
+INFO "IAM ロール付与（SA 自身へ・signBlob 用）: roles/iam.serviceAccountTokenCreator"
+run gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project="$GCP_PROJECT_ID" \
+  --quiet
+OK "signBlob 用ロール付与完了"
 
 # ── 6. Secret Manager にシークレット登録 ──────────────────────
 STEP "6. Secret Manager にシークレット登録"
