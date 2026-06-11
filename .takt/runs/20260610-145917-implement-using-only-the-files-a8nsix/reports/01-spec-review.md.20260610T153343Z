@@ -1,0 +1,49 @@
+# 要件充足レビュー
+
+## 結果: REJECT
+
+## サマリー
+API 契約の転記は backend 実コードと全項目一致し設計に破綻はないが、order タスク6 が明示する「音量」コントロールが spec に未記載（未充足）、かつ spec §2 の App Router 採用根拠が PRD に存在しない出典虚偽のため差し戻す。
+
+## 要件照合
+| # | 要件（タスクから抽出） | 状態 | 根拠（ファイル:行） | コメント |
+|---|-------------------|------|-------------------|----------|
+| 1 | タスク1: Next.js 初期セットアップ | 充足 | `docs/spec/2026-06-10-web-frontend-spec.md:25`, `docs/plan/2026-06-10-web-frontend.md:253` | App Router 採用 |
+| 2 | タスク1: App/Pages Router 判断根拠を記録 | 未充足 | `spec.md:25` | 根拠を「PRD で確定済み」と記すが PRD に Next.js/App Router 記述なし（grep 0件）。実際の出典は `web-design.html:82,84,95` |
+| 3 | タスク2: Context+useReducer グローバル状態 | 充足 | `spec.md:110-122`, `plan.md:316` | reducer/action 定義あり |
+| 4 | タスク2: アクティブ画面の状態管理 | 充足 | `spec.md:122` | 意図的不採用。URL を真実源とする逸脱は妥当・注記済み |
+| 5 | タスク2: 再生状態の管理 | 充足 | `spec.md:116,118` | |
+| 6 | タスク2: 設定値の管理 | 充足 | `spec.md:114` | |
+| 7 | タスク3: Navbar・3画面切替 | 充足 | `spec.md:152` | 4画面へ拡張（Subscriptions 追加）。妥当・注記済み |
+| 8 | タスク4: fetch ラッパー・型付きレスポンス | 充足 | `spec.md:74-95`, `plan.md:289` | |
+| 9 | タスク4: 4xx/5xx/ネットワークエラー統一処理 | 充足 | `spec.md:90-95` | ApiError(status,detail)/status:0 正規化 |
+| 10 | タスク4: 環境変数で API エンドポイント設定可能 | 充足 | `spec.md:36` | `NEXT_PUBLIC_API_BASE_URL` 不採用→実行時 localStorage 設定。逸脱は妥当・注記済み |
+| 11 | タスク5: Feed ローディング/エラー/空 各UI | 充足 | `spec.md:169-174` | 3状態すべて定義 |
+| 12 | タスク6: 音声プレイヤー（再生/停止） | 充足 | `spec.md:144,210` | |
+| 13 | タスク6: 音声プレイヤー（シークバー） | 充足 | `spec.md:146,210` | -15s/+30s + range |
+| 14 | タスク6: 音声プレイヤー（音量） | 未充足 | `spec.md:146,210` | 音量コントロールの記載・省略理由いずれも不在 |
+| 15 | タスク6: 画面遷移後も継続再生 | 充足 | `spec.md:209-211` | レイアウト常駐 AudioPlayerBar |
+| 16 | タスク7: Settings 表示・変更・保存 | 充足 | `spec.md:232-237` | localStorage（Open Q2 デフォルト） |
+| 17 | タスク8: テスト環境・fetch モック | 充足 | `spec.md:260`, `plan.md:124` | Vitest+RTL、fetch/Audio モック |
+| 18 | Open Q1: API ベースURL/エンドポイント所在 | 充足 | `spec.md:38-54` | backend 実コードから転記 |
+| 19 | Open Q2: 設定保存先 | 充足 | `spec.md:19` | localStorage 既定・差替可能 |
+
+## スコープチェック
+| # | 要求外の変更 | ファイル | 妥当性 | コメント |
+|---|-------------|---------|--------|----------|
+| 1 | BFF プロキシ追加（order に記載なし） | `web/app/api/backend/[...path]/route.ts`（計画） | 妥当 | backend に CORS 無し（grep 0件）のため直接 fetch 不可。代替案比較も記録済み |
+| 2 | Subscriptions 画面追加（order は3画面） | `web/app/subscriptions/`（計画） | 妥当 | `/settings/sources` API・設計書に整合 |
+
+## 今回の指摘（new）
+| # | finding_id | family_tag | カテゴリ | 場所 | 問題 | 修正案 |
+|---|------------|------------|---------|------|------|--------|
+| 1 | REQ-NEW-spec-web-frontend-L146 | req-gap | 未実装 | `docs/spec/2026-06-10-web-frontend-spec.md:146,210` | order タスク6（order.md:51）が明示要求する音量コントロールが spec §9/§10.3 に未記載で省略理由もない | AudioPlayerBar に音量 UI を仕様追加し plan Task12 のテスト観点に加える。または OS/端末音量で代替する省略理由を WHY 付きで明記 |
+| 2 | REQ-NEW-spec-web-frontend-L25 | req-gap | 仕様の誤り | `docs/spec/2026-06-10-web-frontend-spec.md:25` | App Router 採用根拠を「PRD で確定済み」と記すが PRD に該当記述なし（grep 0件）。出典が事実と異なる | 根拠を「設計書(web-design.html:82,84,95)で確定済み」へ訂正 |
+
+## 検証証跡
+- ビルド: 未確認（本ステップは spec/plan のドキュメントレビュー。`web/` 未作成のため実行不可）
+- テスト: 未確認（同上。テスト隔離戦略の妥当性のみ静的確認＝充足）
+- 動作確認: API 契約転記を backend 実コードと全項目照合し一致を確認（`main.py:25-30` / `schemas.py:26-34` / `routers/*.py` / `models.py:11,25-27,61`）。CORS 不在 grep 0件、`web/` 未作成（greenfield）を確認
+
+## REJECT判定条件
+- `new` 2件（REQ-NEW-spec-web-frontend-L146 / REQ-NEW-spec-web-frontend-L25）により REJECT。両件とも文言・スコープ修正で完結し、API 契約・アーキテクチャの作り直しは不要

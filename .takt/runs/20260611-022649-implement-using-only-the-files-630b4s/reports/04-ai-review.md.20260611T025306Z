@@ -1,0 +1,42 @@
+# AI生成コードレビュー
+
+## 結果: REJECT
+
+## サマリー
+spec §144 が要求する音声エラー時のトースト表示の配線忘れ（onError 未配線）と、書き込み専用デッド状態 `AppContext.isPlaying` の二重管理を検出したため REJECT。
+
+## 検証した項目
+| 観点 | 結果 | 備考 |
+|------|------|------|
+| 仮定の妥当性 | ✅ | spec §144 と突合 |
+| API/ライブラリの実在 | ✅ | 幻覚API・存在しないメソッドなし |
+| コンテキスト適合 | ✅ | 既存パターンと整合 |
+| スコープ | ✅ | 要求外の余計な変更なし |
+| 配線（エントリポイント結合） | ❌ | onError がエントリから未配線 |
+| デッドコード | ❌ | `isPlaying` 書き込み専用 |
+
+## 今回の指摘（new）
+| # | finding_id | family_tag | カテゴリ | 場所 | 問題 | 修正案 |
+|---|------------|------------|---------|------|------|--------|
+| 1 | AI-NEW-audio-error-toast-unwired | wiring | 配線忘れ/未使用オプション | `web/contexts/AudioPlayerContext.tsx:15`（機構: `web/hooks/useAudioPlayer.ts:13,72,123-126`） | spec §144 が要求する Audio `error` 時のトースト「音声を再生できません」が未表示。`onError` 機構は実装済みだが唯一の本番呼出 `useAudioPlayer()` が引数なしで未配線（onError は test でのみ使用） | `AudioPlayerProvider` で `useToast()` を呼び `useAudioPlayer({ onError: () => showToast('音声を再生できません', 'error') })` を渡す（ToastProvider は layout.tsx:19-20 で外側にある）。配線しない設計なら `UseAudioPlayerOptions`/`onError`/`onErrorRef`/`handleError` 一式を削除 |
+| 2 | AI-NEW-appcontext-isplaying-dead-state | dead-code | デッドコード/二重管理 | `web/contexts/AppContext.tsx:18,30,54-57` | `AppState.isPlaying` と `PLAY`/`PAUSE` は write-only。書込は `AudioPlayerBar.tsx:29,35`・`useStartPodcast.ts:35` のみ、本番の読取はゼロ（UI は `player.isPlaying` を読む: `AudioPlayerBar.tsx:27,57,59`）。再生状態を2つの真実源で二重管理 | `player.isPlaying` に一本化するなら `isPlaying` フィールド・`PLAY`/`PAUSE` action/reducer・各 dispatch を削除。グローバル保持するなら UI が `state.isPlaying` を読むよう配線して二重管理を解消 |
+| 3 | AI-NEW-redundant-setspeed | redundancy | 冗長な呼び出し | `web/components/AudioPlayerBar.tsx:95` | onChange が `player.setSpeed`(:95) と `dispatch SET_SPEED`(:96) を両方呼ぶが、effect(:18-20) が playbackSpeed 変化で `player.setSpeed` を呼ぶため二重呼出。settings/page.tsx:86-92 は dispatch のみで不整合 | :95 の直接呼出を削除し effect に一本化 |
+| 4 | AI-NEW-startpodcast-swallow | error-swallow | サイレント無視 | `web/hooks/useStartPodcast.ts:36-40` | catch が `ApiError` のみトースト表示、`player.play()` の reject（NotAllowedError 等）を無言で握りつぶす。`podcast/[id]/page.tsx:38-43` は else で汎用トーストを出しており不整合 | else 分岐で汎用トーストを表示するか意図をコメント化 |
+
+## 継続指摘（persists）
+なし
+
+## 解消済み（resolved）
+| finding_id | 解消根拠 |
+|------------|----------|
+| AI-NEW-default-speed-wiring | `AppContext.tsx:99-109` restore→`SET_SPEED`、`settings/page.tsx:91` onChange→dispatch、`AudioPlayerBar.tsx:18-20` effect→`player.setSpeed` を実コードで確認 |
+| AI-NEW-podcast-detail-replay | `useStartPodcast.ts` 新規・両ページ（`podcast/page.tsx:19,43`, `podcast/[id]/page.tsx:20,56`）が同一フックを使用 |
+| AI-NEW-unused-response-types | `api.ts:8` import・`:66,86,94` で `request<T>` のジェネリック引数として使用 |
+| CODE-NEW-AudioPlayerBar-L26 | `AudioPlayerBar.tsx:26-36` resume は `player.play()` のみ・`player.load()` 不使用。`SET_TIME` は本番コードに不在 |
+
+## 再開指摘（reopened）
+なし
+
+## REJECT判定条件
+- `new` が4件（うちブロッキング2件: #1, #2）。Policy「判定の最終手順」に従い REJECT。
+- #3, #4 は Warning（改善推奨）。
