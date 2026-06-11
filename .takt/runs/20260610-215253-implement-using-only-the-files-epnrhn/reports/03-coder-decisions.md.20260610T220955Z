@@ -1,0 +1,85 @@
+# Implementation Decisions
+
+## アーキテクチャ決定
+
+### D1: App Router を採用
+- **理由**: Next.js 15 の推奨構成。App Router はコロケーション (layout.tsx + page.tsx) が整理しやすく、RSC を活用できる。
+- **Pages Router を選ばなかった理由**: 新規プロジェクトで Pages Router を選ぶメリットがなく、将来的な移行コストを避けるため。
+
+### D2: BFF プロキシパターン
+- **経路**: Frontend → `/api/backend/...` (BFF proxy route) → Backend
+- **理由**: 環境変数をクライアントサイドに露出しない。`X-Backend-Base-Url` と `X-API-Key` はリクエストヘッダーで渡し、プロキシが転送する。
+- **SSRF 緩和**: `X-Backend-Base-Url` のスキームを `http/https` のみ許可。`ftp://`, `file://`, 相対 URL は 400 を返す。
+
+### D3: localStorage に credentials を保存
+- **理由**: バックエンドセッション管理がないシンプルなアプリで、UserAgent ごとに設定が異なる。
+- **保存するもの**: `api_base_url`, `api_key`, `player_volume`, `podcast_position:{id}`, `default_playback_speed`
+- **API キーのマスク**: Settings 画面では実際のキー値を表示せず「設定済み」と表示。
+
+### D4: React Context + useReducer でグローバル状態管理
+- **管理対象**: API 設定 (`isConfigured`, `baseUrl`, `apiKey`)、再生状態 (`currentPodcast`, `isPlaying`, `currentTime`, `duration`, `playbackSpeed`)
+- **volume は AppContext に含めない**: `useAudioPlayer` フックで管理する (spec §9 の設計判断)。
+
+### D5: useAudioPlayer フック設計
+- **位置保存スロットル**: 時間ベースではなく**位置ベース** (10 秒ごと) でスロットル。タイマー依存がなく、テストが容易。
+- **アンマウント時クリーンアップ**: `useEffect` クリーンアップで `audio.pause()` を呼び、メモリリークを防止。
+- **クランプ処理**: `setVolume` で `[0, 1]` にクランプ。`seekRelative` で `[0, duration]` にクランプ。
+
+### D6: Podcast 詳細ページ (app/podcast/[id]/page.tsx)
+- **params は `Promise<{id: string}>`**: Next.js 15 の dynamic params は Promise 化されている。`useEffect(() => { params.then(...) })` で非同期解決。
+
+### D7: 再生前に getPodcast を再取得 (PodcastPage)
+- **理由**: 音声ファイルの URL は署名付き URL の可能性がある（有効期限あり）。一覧取得時の URL ではなく、再生直前に最新 URL を取得する。
+
+## コードクオリティ決定
+
+### D8: dead code 除去
+- `app/feed/page.tsx`: 未使用の `const client = createApiClient(...)` 変数を削除した。`fetchFeed`、`handleStar`、`handleDismiss` が各自でクライアントを生成するため不要。
+
+### D9: エラーハンドリング方針
+- **ApiError**: status コードに基づき適切なメッセージを表示 (0→ネットワーク, 401→API キー, 404→対象なし, 409→重複, 422→バリデーション)
+- **非 ApiError**: 予期しないエラーとして汎用メッセージを表示
+- **Fail Fast**: エラーは画面上に表示し、サイレントに無視しない
+
+### D10: セキュリティ
+- API キーは `type="password"` フィールドで入力
+- API キーはログに出力しない
+- URL は `https://` から始まることをバリデーション (SetupModal)
+
+## テスト戦略
+
+### 静的分析 (コードレビュー) による確認
+npm install が sandbox 制約で実行できなかったため、全テストファイル (19 件) を対応する実装ファイルと照合し、以下を確認した:
+
+- **lib/format.test.ts** (8 tests): `formatDuration` / `formatDate` の境界値テスト → 実装が全ケースをカバー
+- **lib/api.test.ts** (22 tests): API クライアントのエンドポイント・エラーハンドリング → 全メソッドが対応
+- **app/api/proxy.test.ts** (15 tests): BFF プロキシの転送・エラー・SSRF → 実装が全ケースをカバー
+- **contexts/AppContext.test.tsx** (14 tests): 状態管理 → reducer が全 action をカバー
+- **components/NavigationBar.test.tsx** (7 tests): 4 リンク・aria-current → 実装が完全対応
+- **components/ArticleCard.test.tsx** (11 tests): 表示・操作 → 実装が完全対応
+- **components/PodcastCard.test.tsx** (10 tests): 表示・操作・savedPosition → 実装が完全対応
+- **components/AudioPlayerBar.test.tsx** (14 tests): 表示・操作・ボリューム → 実装が完全対応
+- **components/ui/DifficultyBadge.test.tsx** (8 tests): 6 難易度 → 実装が完全対応
+- **components/ui/Toast.test.tsx** (5 tests): 表示・自動消滅・role → 実装が完全対応
+- **components/ui/ConfirmDialog.test.tsx** (6 tests): 開閉・コールバック・Escape → 実装が完全対応
+- **components/ui/SetupModal.test.tsx** (8 tests): バリデーション・接続テスト → 実装が完全対応
+- **hooks/useAudioPlayer.test.ts** (28 tests): 再生制御・シーク・ボリューム・クリーンアップ → 実装が完全対応
+- **hooks/useLocalStorage.test.ts** (8 tests): CRUD・SSR・fallback → 実装が完全対応
+- **app/feed/page.test.tsx** (11 tests): star/dismiss/refresh/エラー → 実装が完全対応
+- **app/podcast/page.test.tsx** (7 tests): 一覧・再生・refresh → 実装が完全対応
+- **app/podcast/id/page.test.tsx** (8 tests): 詳細・404 → 実装が完全対応
+- **app/settings/page.test.tsx** (9 tests): 設定・保存・接続テスト → 実装が完全対応
+- **app/subscriptions/page.test.tsx** (11 tests): 追加・削除・validation → 実装が完全対応
+
+**合計 19 テストファイル、約 220 テストケース**
+
+## 未解決事項
+
+### npm install 実行待ち
+sandbox 権限制約により、テストの実際の実行が完了していない。
+次のステップで以下を実行する必要がある:
+```bash
+cd /Users/rio/git/takt-worktrees/20260610T1459-tasuku-next-js-furontoendo-doc/web
+npm install
+npm run test
+```
