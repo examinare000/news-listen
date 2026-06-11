@@ -1,0 +1,86 @@
+# docker-compose.yml — ローカル Docker での MVP PoC（実 GCP 接続）
+#
+# データ/ストレージ/AI は実 GCP（Firestore / Cloud Storage / Gemini）に接続する。
+# コンテナは SA 鍵（infra/keys/news-listen-sa.json、gitignore 済み）で認証する。
+# 署名付き URL は IAM signBlob で生成されるため SA 認証が必須。
+#
+# 変数は同ディレクトリの .env から自動展開される（GCP_BUCKET_NAME 等）。
+#
+# 使い方:
+#   docker compose up --build api web         # API + Web 起動
+#   docker compose run --rm rss-fetcher       # RSS 取得（オンデマンド）
+#   docker compose run --rm recommendation    # レコメンド
+#   docker compose run --rm podcast-generator # Podcast 生成（Star 後）
+#
+# Web の SetupModal には次を入力する:
+#   - バックエンド URL: http://api:8080  （Web コンテナ内から解決される名前）
+#   - API キー:        .env の API_KEY
+
+x-gcp-credentials: &gcp-credentials
+  # SA 鍵をマウントし、google-auth が ADC として読み取る
+  GOOGLE_APPLICATION_CREDENTIALS: /secrets/sa.json
+  GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
+
+x-sa-key-volume: &sa-key-volume
+  - ./infra/keys/news-listen-sa.json:/secrets/sa.json:ro
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *gcp-credentials
+      USER_ID: ${USER_ID:-default}
+      GCS_BUCKET_NAME: ${GCP_BUCKET_NAME}
+      API_KEY: ${API_KEY}
+    volumes: *sa-key-volume
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  # ── オンデマンドのバッチジョブ（docker compose run で起動） ──
+  rss-fetcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.jobs
+    profiles: ["jobs"]
+    environment:
+      <<: *gcp-credentials
+      JOB_MODULE: jobs.rss_fetcher.main
+      USER_ID: ${USER_ID:-default}
+    volumes: *sa-key-volume
+
+  recommendation:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.jobs
+    profiles: ["jobs"]
+    environment:
+      <<: *gcp-credentials
+      JOB_MODULE: jobs.recommendation.main
+      USER_ID: ${USER_ID:-default}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    volumes: *sa-key-volume
+
+  podcast-generator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.jobs
+    profiles: ["jobs"]
+    environment:
+      <<: *gcp-credentials
+      JOB_MODULE: jobs.podcast_generator.main
+      USER_ID: ${USER_ID:-default}
+      GCS_BUCKET_NAME: ${GCP_BUCKET_NAME}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DIFFICULTY: ${DIFFICULTY:-toeic_900}
+    volumes: *sa-key-volume
