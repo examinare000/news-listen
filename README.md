@@ -90,6 +90,7 @@ news-listen/
 ### 前提条件
 
 - Python 3.12+
+- [uv](https://docs.astral.sh/uv/)（バックエンドの venv・依存・実行に使用）
 - Node.js 22+
 - `gcloud` CLI（認証済み）
 - GCP プロジェクト作成済み
@@ -109,7 +110,7 @@ bash infra/setup.sh
 
 ### 3. バックエンド（ローカル開発）
 
-バックエンドの venv 作成・依存インストール・実行はすべて [uv](https://docs.astral.sh/uv/) 経由で行う（`agent-rules/11-testing-strategy.md` に準拠）。`requirements.txt` を依存の正本とし、`uv pip install` で同期する。
+バックエンドの venv 作成・依存インストール・実行はすべて [uv](https://docs.astral.sh/uv/) 経由で行う（`agent-rules/11-testing-strategy.md` に準拠）。`requirements.txt` を依存の正本とし、`uv pip install` で依存をインストールする（厳密に環境を一致させたい場合は `uv pip sync` を使う）。
 
 ```bash
 cd backend
