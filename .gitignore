@@ -70,6 +70,8 @@ ios/.build/
 plan.md
 spec.md
 order.md
+.claude/
+.takt/
 # ── Misc ──────────────────────────────────────────────────────
 tmp/
 temp/
