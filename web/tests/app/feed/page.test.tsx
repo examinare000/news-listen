@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
 import FeedPage from '@/app/feed/page'
@@ -121,7 +121,8 @@ describe('FeedPage — Star', () => {
     renderFeedPage()
 
     await waitFor(() => screen.getByText('TypeScript 5.5 Released'))
-    await userEvent.click(screen.getAllByRole('button', { name: /star|★/i })[0])
+    // ArticleCard の Star ボタンは aria-label「スターする」(未スター時)
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
 
     await waitFor(() => {
       expect(screen.getByText(/Star しました/)).toBeInTheDocument()
@@ -141,7 +142,7 @@ describe('FeedPage — Star', () => {
     renderFeedPage()
 
     await waitFor(() => screen.getByText('TypeScript 5.5 Released'))
-    await userEvent.click(screen.getAllByRole('button', { name: /star|★/i })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
 
     await waitFor(() => {
       expect(screen.getByText(/記事が見つかりません/)).toBeInTheDocument()
@@ -159,7 +160,7 @@ describe('FeedPage — Star', () => {
     renderFeedPage()
 
     await waitFor(() => screen.getByText('TypeScript 5.5 Released'))
-    await userEvent.click(screen.getAllByRole('button', { name: /star|★/i })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
 
     await waitFor(() => {
       expect(screen.getByText(/API キー/)).toBeInTheDocument()
@@ -186,6 +187,118 @@ describe('FeedPage — Dismiss', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('TypeScript 5.5 Released')).not.toBeInTheDocument()
+    })
+  })
+})
+
+// ==========================================================
+// Feed 画面 — タブフィルタ（すべて / ★ スター済み）
+// WHY toggle button: WAI-ARIA の tabs パターンは tabpanel 関連付けと
+// 矢印キーのフォーカス移動（roving tabindex）まで実装して初めて成立する。
+// 2 択のクライアントフィルタには aria-pressed トグルボタンの方が
+// 標準の Tab キー操作のまま正しい状態を支援技術へ伝えられる。
+// ==========================================================
+describe('FeedPage — Tabs', () => {
+  // スター済み記事のカード側ボタン（「スター済み」ラベル）と名前が衝突するため、
+  // タブはフィルタグループ内に限定して取得する
+  function tabs() {
+    return within(screen.getByRole('group', { name: 'フィードの絞り込み' }))
+  }
+
+  async function setupWithArticles() {
+    const { createApiClient } = await import('@/lib/api')
+    createApiClient.mockReturnValue({
+      getFeed: vi.fn().mockResolvedValue({ articles: SAMPLE_ARTICLES, date: '2026-06-10' }),
+      starArticle: vi.fn().mockResolvedValue({ status: 'starred', article_id: 'a1' }),
+      dismissArticle: vi.fn(),
+    })
+    renderFeedPage()
+    await waitFor(() => screen.getByText('TypeScript 5.5 Released'))
+  }
+
+  test('Given starred tab clicked, shows only starred articles', async () => {
+    await setupWithArticles()
+
+    // a1 をスターしてからスター済みタブへ
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
+    await waitFor(() => screen.getByText(/Star しました/))
+
+    await userEvent.click(tabs().getByRole('button', { name: /スター済み/ }))
+
+    expect(screen.getByText('TypeScript 5.5 Released')).toBeInTheDocument()
+    expect(screen.queryByText('Next.js 15 Features')).not.toBeInTheDocument()
+    expect(tabs().getByRole('button', { name: /スター済み/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Given all tab reselected, shows all articles again', async () => {
+    await setupWithArticles()
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
+    await waitFor(() => screen.getByText(/Star しました/))
+
+    await userEvent.click(tabs().getByRole('button', { name: /スター済み/ }))
+    expect(screen.queryByText('Next.js 15 Features')).not.toBeInTheDocument()
+
+    await userEvent.click(tabs().getByRole('button', { name: /すべて/ }))
+
+    expect(screen.getByText('TypeScript 5.5 Released')).toBeInTheDocument()
+    expect(screen.getByText('Next.js 15 Features')).toBeInTheDocument()
+    expect(tabs().getByRole('button', { name: /すべて/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Given star performed, tab counts reflect totals and starred count increases', async () => {
+    await setupWithArticles()
+
+    expect(tabs().getByRole('button', { name: /すべて/ })).toHaveTextContent('2')
+    const starredTab = tabs().getByRole('button', { name: /スター済み/ })
+    expect(starredTab).toHaveTextContent('0')
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'スターする' })[0])
+
+    await waitFor(() => {
+      expect(tabs().getByRole('button', { name: /スター済み/ })).toHaveTextContent('1')
+    })
+  })
+
+  test('Given starred tab with zero starred articles, shows dedicated empty message', async () => {
+    await setupWithArticles()
+
+    await userEvent.click(tabs().getByRole('button', { name: /スター済み/ }))
+
+    expect(screen.getByText('スター済みの記事はありません')).toBeInTheDocument()
+  })
+
+  test('tabs do not expose WAI-ARIA tab roles (toggle button pattern instead)', async () => {
+    await setupWithArticles()
+
+    // tabs ロールを使う場合は tabpanel 関連付けが必須になるため、
+    // 本実装は意図的に tablist/tab を出さない（上記 WHY コメント参照）
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(tabs().getByRole('button', { name: /すべて/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(tabs().getByRole('button', { name: /スター済み/ })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+  })
+})
+
+// ==========================================================
+// Feed 画面 — ページヘッダー
+// ==========================================================
+describe('FeedPage — Page header', () => {
+  test('Given feed date returned, shows it in the page subtitle', async () => {
+    const { createApiClient } = await import('@/lib/api')
+    createApiClient.mockReturnValue({
+      getFeed: vi.fn().mockResolvedValue({ articles: SAMPLE_ARTICLES, date: '2026-06-10' }),
+      starArticle: vi.fn(),
+      dismissArticle: vi.fn(),
+    })
+
+    renderFeedPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/2026-06-10/)).toBeInTheDocument()
     })
   })
 })

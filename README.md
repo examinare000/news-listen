@@ -75,10 +75,13 @@ news-listen/
 │   └── tests/        # Vitest テストスイート
 ├── infra/            # GCP セットアップスクリプト
 ├── docs/
-│   ├── prd/          # PRD（要件定義）
-│   ├── design/       # UI/バックエンド設計ドキュメント
-│   ├── spec/         # フロントエンド仕様書
-│   ├── plan/         # 実装プラン
+│   ├── prd/          # PRD（要件定義・Phase 2 候補）
+│   ├── adr/          # アーキテクチャ決定レコード（ADR）
+│   ├── design/       # UI/バックエンド設計ドキュメント（Web の正本: app-ui.html）
+│   ├── spec/         # フロントエンド仕様書（Living Doc）
+│   ├── tech/         # 技術文書（技術的残課題等）
+│   ├── operations/   # 運用文書（ローカル開発手順・デプロイ状況）
+│   ├── plan/         # 実装計画（実行中のみ。完了後は削除し恒久ドキュメントへ反映 — plan/README.md 参照）
 │   └── superpowers/  # 旧実装プラン
 └── .env.example      # 環境変数テンプレート（バックエンド用）
 ```
@@ -169,7 +172,8 @@ npm test
 
 ## ドキュメント
 
-- [PRD](docs/prd/2026-05-31-news-listen.md) — 要件定義・システムアーキテクチャ詳細
-- [Web フロントエンド仕様書](docs/spec/2026-06-10-web-frontend-spec.md) — API 契約・状態管理設計・受け入れ基準
-- [Web フロントエンド実装プラン](docs/plan/2026-06-10-web-frontend.md)
+- [PRD](docs/prd/2026-05-31-news-listen.md) — 要件定義・システムアーキテクチャ詳細・Phase 2 候補
+- [Web フロントエンド仕様書](docs/spec/2026-06-10-web-frontend-spec.md) — API 契約・状態管理設計・画面/デザイン仕様・受け入れ基準
+- [ADR](docs/adr/) — BFF プロキシ / API 契約優先 / 純 CSS トークン / テーマ機構の決定記録
+- [Web ローカル開発・検証手順](docs/operations/web-local-dev.md)
 - [バックエンド実装プラン](docs/superpowers/plans/2026-05-31-backend.md)
