@@ -110,7 +110,7 @@ run gcloud run deploy news-listen-api \
   --min-instances=0 \
   --max-instances=3 \
   --timeout=300 \
-  --set-env-vars="USER_ID=$USER_ID,GCS_BUCKET_NAME=$GCP_BUCKET_NAME" \
+  --set-env-vars="USER_ID=$USER_ID,GCS_BUCKET_NAME=$GCP_BUCKET_NAME,JOB_TRIGGER_BACKEND=cloud_run,GCP_REGION=$GCP_REGION,GCP_PROJECT_ID=$GCP_PROJECT_ID" \
   --set-secrets="API_KEY=$SECRET_API_KEY:latest" \
   --project="$GCP_PROJECT_ID"
 OK "API サービスデプロイ完了"
