@@ -15,8 +15,10 @@ rate_limit_fallback:
 #               codex フォールバックを重ねて冗長化する。役割と料金特性を一致させる狙い。
 #
 #   マクロ判断ロール（高度な設計・判断）:
-#     ・設計系（analyze_order / generate_spec）            → claude / claude-fable-5  (Fable 5)
+#     ・設計系（analyze_order / generate_spec）            → claude / claude-opus-4-8 (Opus 4.8)
 #     ・レビュー系（review_spec / 並列reviewers / supervise）→ claude / claude-opus-4-8 (Opus 4.8)
+#   ※ 当初は設計系に Fable 5 を充てていたが、Fable 5 が利用不可になったため、
+#     利用可能な最上位モデル Opus 4.8 に変更した。
 #   オペレーティブロール（テスト作成・実装・修正・検証・Git・ドキュメント同期）:
 #     ・claude / claude-sonnet-4-6 (Sonnet 4.6) ＋ rate_limit 時 codex へフォールバック
 #
@@ -28,9 +30,9 @@ rate_limit_fallback:
 steps:
   - name: analyze_order
     edit: false
-    # マクロ判断・設計系: 注文分析と影響範囲の高度な見極めが必要なため Fable
+    # マクロ判断・設計系: 注文分析と影響範囲の高度な見極めが必要なため Opus（旧 Fable 5、利用不可のため変更）
     provider: claude
-    model: claude-fable-5
+    model: claude-opus-4-8
     persona: architect
     knowledge: architecture
     instruction: |
@@ -61,9 +63,9 @@ steps:
 
   - name: generate_spec
     edit: true
-    # マクロ判断・設計系: 仕様/プラン設計は最も高度な判断を要するため Fable
+    # マクロ判断・設計系: 仕様/プラン設計は最も高度な判断を要するため Opus（旧 Fable 5、利用不可のため変更）
     provider: claude
-    model: claude-fable-5
+    model: claude-opus-4-8
     persona: architect
     knowledge: architecture
     instruction: |
