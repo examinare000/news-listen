@@ -25,8 +25,8 @@
     ▼
 [Cloud Run Service: FastAPI]
     ├── GET  /feed            レコメンド記事一覧
-    ├── POST /articles/:id/star    → Cloud Tasks にPodcast生成タスク投入
-    ├── POST /articles/:id/dismiss
+    ├── POST /articles/:id/star    → recommendation + podcast-generator ジョブを自動起動
+    ├── POST /articles/:id/dismiss → recommendation ジョブを自動起動
     ├── GET  /podcasts
     ├── GET  /podcasts/:id
     └── GET/POST/DELETE /settings/sources

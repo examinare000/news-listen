@@ -171,6 +171,8 @@ ROLES=(
   roles/secretmanager.secretAccessor
   roles/cloudtasks.enqueuer
   roles/aiplatform.user
+  # api サービスと Cloud Scheduler が Cloud Run Jobs を起動する（run.jobs.run）ために必要。
+  roles/run.developer
 )
 
 for role in "${ROLES[@]}"; do
