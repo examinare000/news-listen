@@ -13,7 +13,7 @@
 | ニュースソース | HackerNews・Zenn.dev（アプリ内から任意 RSS URL を追加可能） |
 | Podcast 生成 | Star した記事を 1〜2 分で音声化。日本語イントロ → 英語本編（男女掛け合い） |
 | 難易度 | TOEIC 600〜 / TOEIC 730-900 / IELTS 5.5-6.5 / IELTS 7.0+ / 英検2級 / 英検準1級 の 6 段階 |
-| 月次コスト | 約 $2.67（1 ユーザー・1 日 5 エピソード） |
+| 月次コスト | 約 $2.67（1 ユーザー・1 日 5 エピソード）。同一記事を複数ユーザーがスターした場合、Gemini/TTS は 1 回のみ実行され 2 人目以降のコストは Firestore 読み取り数件のみ（クロスユーザーキャッシュ） |
 
 ---
 
@@ -35,10 +35,14 @@
     ├── rss-fetcher-job     RSS 取得 → Firestore
     └── recommendation-job  Gemini で関心スコア計算
 
-[Cloud Tasks Worker]
-    記事本文取得 → Gemini 2.5 Flash でスクリプト生成
-    → Gemini TTS で音声合成 → Cloud Storage に MP3 保存
-    → Push 通知
+[Cloud Run Jobs: podcast-generator（Star/Dismiss 操作で起動 + 毎朝 07:00）]
+    ① クロスユーザーキャッシュ（Firestore: podcastCache/{cache_key}）を確認
+       ├── completed: Gemini/TTS を呼ばず共有音声で per-user Podcast を即作成（キャッシュヒット）
+       ├── processing: 他ジョブが生成中 → 今回スキップ、次回実行で補完（方式 B）
+       └── なし/failed: トランザクションで processing を原子確保 → 生成フェーズへ
+    ② Gemini 2.5 Flash でスクリプト生成 → Gemini TTS で音声合成
+       → Cloud Storage（podcasts/cache/{cache_key}.mp3）に保存
+       → podcastCache を completed に更新 → per-user Podcast を作成
 ```
 
 > **BFF プロキシ**: バックエンドに CORS ミドルウェアがないため、ブラウザからの直接 fetch は不可。`web/app/api/backend/[...path]/route.ts` がリクエストを中継し、`X-API-Key` をヘッダーで転送する。API 接続設定（ベース URL・API キー）はブラウザの localStorage に保存し、ビルド時固定の環境変数は使用しない。
