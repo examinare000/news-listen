@@ -36,6 +36,12 @@ services:
       USER_ID: ${USER_ID:-default}
       GCS_BUCKET_NAME: ${GCP_BUCKET_NAME}
       API_KEY: ${API_KEY}
+      # Star/Dismiss を契機にジョブを自動起動する。ローカルでは api コンテナ内で
+      # `python -m jobs.*.main` をサブプロセス起動する（Cloud Run を介さない）。
+      JOB_TRIGGER_BACKEND: local_process
+      # local_process モードで podcast-generator / recommendation を走らせるための env。
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DIFFICULTY: ${DIFFICULTY:-toeic_900}
     volumes: *sa-key-volume
 
   web:
